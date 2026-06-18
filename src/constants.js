@@ -24,6 +24,9 @@ export const DEFAULT_SETTINGS = {
   maxScore: DEFAULT_MAX_SCORE,
 }
 
+// Visible build tag so it's unambiguous which deployed version is loaded.
+export const APP_VERSION = '6'
+
 // The model and web-search tools used for AI market research. The newer tool
 // version is tried first; if an account doesn't accept it, research falls back
 // to the stable version.

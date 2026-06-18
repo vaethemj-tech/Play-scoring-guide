@@ -13,7 +13,7 @@ import {
   saveSettings,
   clearAll,
 } from './lib/storage.js'
-import { DEFAULT_SETTINGS } from './constants.js'
+import { DEFAULT_SETTINGS, APP_VERSION } from './constants.js'
 
 export default function App() {
   const toast = useToast()
@@ -96,7 +96,7 @@ export default function App() {
         {tab === 'export' && <Export plays={plays} settings={settings} />}
       </main>
       <footer className="mx-auto max-w-6xl px-4 pb-8 pt-2 text-center text-xs text-slate-400">
-        Play Scoring Guide · Data is stored locally in your browser
+        Play Scoring Guide · Data is stored locally in your browser · Build {APP_VERSION}
       </footer>
     </div>
   )
