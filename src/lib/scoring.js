@@ -35,6 +35,24 @@ export const TIER_CLASSES = {
   low: 'bg-red-100 text-red-800 border border-red-300',
 }
 
+// Maps a research rating to a tone, accounting for which direction is "good"
+// for each kind (e.g. easy rights = good, hard rights = bad).
+export function ratingTone(value, kind) {
+  const good = { availability: 'Easy', complexity: 'Low', appeal: 'High' }[kind]
+  const bad = { availability: 'Hard', complexity: 'High', appeal: 'Low' }[kind]
+  if (!value || value === 'Unknown') return 'none'
+  if (value === good) return 'good'
+  if (value === bad) return 'bad'
+  return 'mid'
+}
+
+export const RATING_CLASSES = {
+  good: 'bg-green-100 text-green-800 border border-green-300',
+  mid: 'bg-amber-100 text-amber-800 border border-amber-300',
+  bad: 'bg-red-100 text-red-800 border border-red-300',
+  none: 'bg-slate-100 text-slate-500 border border-slate-300',
+}
+
 export function sortPlays(plays, key, dir = 'asc') {
   const factor = dir === 'asc' ? 1 : -1
   const copy = [...plays]

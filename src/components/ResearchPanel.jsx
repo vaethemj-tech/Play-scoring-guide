@@ -1,3 +1,14 @@
+import { ratingTone, RATING_CLASSES } from '../lib/scoring.js'
+
+function Chip({ value, kind }) {
+  const tone = ratingTone(value, kind)
+  return (
+    <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${RATING_CLASSES[tone]}`}>
+      {value && value !== 'Unknown' ? value : 'Unknown'}
+    </span>
+  )
+}
+
 // Renders a play's saved market-research results.
 const SECTIONS = [
   ['summary', 'Summary'],
@@ -18,6 +29,32 @@ export default function ResearchPanel({ research, researchedAt }) {
 
   return (
     <div className="space-y-4">
+      {/* Key facts */}
+      <div className="rounded-lg border border-slate-200 bg-white p-3">
+        <div className="mb-2 flex items-baseline justify-between gap-2">
+          <span className="text-xs font-medium uppercase tracking-wide text-slate-400">
+            Rights cost
+          </span>
+          <span className="text-right text-sm font-semibold text-slate-800">
+            {research.rightsCost || 'Not listed'}
+            {research.rightsHolder && (
+              <span className="ml-1 font-normal text-slate-400">({research.rightsHolder})</span>
+            )}
+          </span>
+        </div>
+        <div className="flex flex-wrap gap-x-4 gap-y-2 text-xs text-slate-500">
+          <span className="flex items-center gap-1">
+            Rights: <Chip value={research.rightsAvailability} kind="availability" />
+          </span>
+          <span className="flex items-center gap-1">
+            Complexity: <Chip value={research.complexityRating} kind="complexity" />
+          </span>
+          <span className="flex items-center gap-1">
+            Appeal: <Chip value={research.audienceAppealRating} kind="appeal" />
+          </span>
+        </div>
+      </div>
+
       {SECTIONS.map(([key, label]) =>
         research[key] ? (
           <div key={key}>

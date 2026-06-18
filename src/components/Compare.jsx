@@ -2,7 +2,14 @@ import { useState } from 'react'
 import EmptyState from './EmptyState.jsx'
 import ScoreBadge from './ScoreBadge.jsx'
 import { Sparkles } from './Icons.jsx'
-import { getScore, maxScore, scoreTier, sortPlays } from '../lib/scoring.js'
+import {
+  getScore,
+  maxScore,
+  scoreTier,
+  sortPlays,
+  ratingTone,
+  RATING_CLASSES,
+} from '../lib/scoring.js'
 import { runComparison } from '../lib/anthropic.js'
 import { useToast } from './Toast.jsx'
 
@@ -202,6 +209,47 @@ export default function Compare({ plays, settings }) {
                     <Cell key={p.id}>{p.runtime ? `${p.runtime} min` : '—'}</Cell>
                   ))}
                 </Row>
+                <Row label="Rights cost">
+                  {selected.map((p) => (
+                    <Cell key={p.id} highlight={false}>
+                      {p.research ? (
+                        <>
+                          <span className="font-semibold text-slate-800">
+                            {p.research.rightsCost || 'Not listed'}
+                          </span>
+                          {p.research.rightsHolder && (
+                            <span className="block text-xs text-slate-400">
+                              {p.research.rightsHolder}
+                            </span>
+                          )}
+                        </>
+                      ) : (
+                        <span className="italic text-slate-400">No research yet</span>
+                      )}
+                    </Cell>
+                  ))}
+                </Row>
+                <Row label="Rights availability">
+                  {selected.map((p) => (
+                    <Cell key={p.id}>
+                      <RatingChip value={p.research?.rightsAvailability} kind="availability" />
+                    </Cell>
+                  ))}
+                </Row>
+                <Row label="Production complexity">
+                  {selected.map((p) => (
+                    <Cell key={p.id}>
+                      <RatingChip value={p.research?.complexityRating} kind="complexity" />
+                    </Cell>
+                  ))}
+                </Row>
+                <Row label="Audience appeal">
+                  {selected.map((p) => (
+                    <Cell key={p.id}>
+                      <RatingChip value={p.research?.audienceAppealRating} kind="appeal" />
+                    </Cell>
+                  ))}
+                </Row>
                 {researchRows.map(([label, key]) => (
                   <Row key={key} label={label}>
                     {selected.map((p) => (
@@ -227,6 +275,16 @@ export default function Compare({ plays, settings }) {
         </>
       )}
     </div>
+  )
+}
+
+function RatingChip({ value, kind }) {
+  const tone = ratingTone(value, kind)
+  const label = value && value !== 'Unknown' ? value : 'Unknown'
+  return (
+    <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${RATING_CLASSES[tone]}`}>
+      {label}
+    </span>
   )
 }
 

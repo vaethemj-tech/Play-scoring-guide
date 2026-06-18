@@ -59,14 +59,14 @@ export function generateReport(rankedPlays, settings, options = {}) {
 
   autoTable(doc, {
     startY: 76,
-    head: [['#', 'Title', 'Playwright', 'Genre', 'Score', 'Research']],
+    head: [['#', 'Title', 'Playwright', 'Genre', 'Score', 'Rights cost']],
     body: plays.map((p, i) => [
       String(i + 1),
       p.title || '(untitled)',
       p.playwright || '—',
       p.genre || '—',
       `${getScore(p)} / ${max}`,
-      p.researchedAt ? 'Yes' : 'No',
+      p.research ? p.research.rightsCost || 'Not listed' : '—',
     ]),
     styles: { fontSize: 10, cellPadding: 6 },
     headStyles: { fillColor: PRIMARY, textColor: 255 },
@@ -107,6 +107,31 @@ export function generateReport(rankedPlays, settings, options = {}) {
     doc.setTextColor(...PRIMARY)
     doc.text(`Score: ${getScore(p)} / ${max}`, 48, y)
     y += 28
+
+    // Rights & production quick facts
+    if (p.research) {
+      const r = p.research
+      const facts = [
+        `Rights cost: ${r.rightsCost || 'Not listed'}${r.rightsHolder ? ` (${r.rightsHolder})` : ''}`,
+        `Rights availability: ${r.rightsAvailability || 'Unknown'}`,
+        `Production complexity: ${r.complexityRating || 'Unknown'}`,
+        `Audience appeal: ${r.audienceAppealRating || 'Unknown'}`,
+      ]
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(11)
+      doc.setTextColor(...PRIMARY)
+      doc.text('Rights & Production', 48, y)
+      y += 15
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(10)
+      doc.setTextColor(51, 65, 85)
+      facts.forEach((f) => {
+        y = ensureSpace(doc, y, 14, pageH)
+        doc.text(f, 48, y)
+        y += 13
+      })
+      y += 10
+    }
 
     // Research summary
     if (p.research) {

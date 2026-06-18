@@ -76,17 +76,22 @@ Research and report on, with reference to ${market}:
 3. Audience reception notes and reviews from similar-sized markets.
 4. Known production complexity or budget considerations (set, cast, technical, music).
 
-Return ONLY a JSON object (no markdown, no code fences, no commentary before or after) with exactly these string keys, each a concise paragraph or two:
+Return ONLY a JSON object (no markdown, no code fences, no commentary before or after) with exactly these keys:
 {
-  "licensing": "...",
-  "productionHistory": "...",
-  "audienceReception": "...",
-  "complexity": "...",
+  "licensing": "1-2 sentences on licensing/royalty costs and how to obtain rights",
+  "productionHistory": "1-2 sentences",
+  "audienceReception": "1-2 sentences",
+  "complexity": "1-2 sentences",
   "summary": "one short paragraph synthesizing the key takeaways for the board",
+  "rightsCost": "the actual licensing/royalty price if stated anywhere, e.g. '$90 per performance' or '$1,200 for a 6-show package'. If no price is found, use 'Not listed'.",
+  "rightsHolder": "the publisher/licensor if known (Dramatists Play Service, Concord Theatricals/Samuel French, Music Theatre International, Playscripts, etc.), otherwise an empty string",
+  "rightsAvailability": "your best judgment of how easy the rights are to obtain — exactly one of: Easy, Moderate, Hard, Unknown",
+  "complexityRating": "overall production complexity — exactly one of: Low, Medium, High, Unknown",
+  "audienceAppealRating": "likely audience appeal for a community theater — exactly one of: High, Medium, Low, Unknown",
   "sources": [{"title": "...", "url": "..."}]
 }
 
-If a fact cannot be found, say so plainly in the relevant field rather than inventing it.`
+If a fact cannot be found, say so plainly (use 'Not listed' for rightsCost). Do not invent prices.`
 }
 
 // Attempts to parse a JSON object out of a text candidate. Strips Markdown code
@@ -102,6 +107,21 @@ function parseJsonCandidate(text) {
   } catch {
     return null
   }
+}
+
+// Normalizes a model-provided rating to one of the allowed values.
+function normRating(value, allowed) {
+  if (!value) return 'Unknown'
+  const v = String(value).trim().toLowerCase()
+  return allowed.find((a) => a.toLowerCase() === v) || 'Unknown'
+}
+
+const EMPTY_RESEARCH_EXTRAS = {
+  rightsCost: '',
+  rightsHolder: '',
+  rightsAvailability: 'Unknown',
+  complexityRating: 'Unknown',
+  audienceAppealRating: 'Unknown',
 }
 
 // Looks like a tool-version / unsupported-tool error that warrants retrying
@@ -292,6 +312,7 @@ export async function runResearch(play, settings) {
       complexity: '',
       summary: result.text,
       sources: [],
+      ...EMPTY_RESEARCH_EXTRAS,
     }
   }
 
@@ -302,6 +323,11 @@ export async function runResearch(play, settings) {
     complexity: data.complexity || '',
     summary: data.summary || '',
     sources: Array.isArray(data.sources) ? data.sources : [],
+    rightsCost: data.rightsCost || '',
+    rightsHolder: data.rightsHolder || '',
+    rightsAvailability: normRating(data.rightsAvailability, ['Easy', 'Moderate', 'Hard']),
+    complexityRating: normRating(data.complexityRating, ['Low', 'Medium', 'High']),
+    audienceAppealRating: normRating(data.audienceAppealRating, ['High', 'Medium', 'Low']),
   }
 }
 
