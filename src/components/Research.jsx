@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import EmptyState from './EmptyState.jsx'
 import ResearchPanel from './ResearchPanel.jsx'
 import { Sparkles, ChevronDown, ChevronUp } from './Icons.jsx'
@@ -10,6 +10,20 @@ export default function Research({ plays, settings, onResearched }) {
   const [busyId, setBusyId] = useState(null) // play currently being researched
   const [batch, setBatch] = useState(null) // { done, total } during Research All
   const [expanded, setExpanded] = useState(null)
+  const [elapsed, setElapsed] = useState(0)
+
+  // Tick an elapsed-seconds counter while a play is being researched, so it's
+  // visibly progressing rather than an indefinite spinner.
+  useEffect(() => {
+    if (busyId == null) {
+      setElapsed(0)
+      return
+    }
+    const start = Date.now()
+    setElapsed(0)
+    const id = setInterval(() => setElapsed(Math.floor((Date.now() - start) / 1000)), 1000)
+    return () => clearInterval(id)
+  }, [busyId])
 
   const hasKey = Boolean(settings.apiKey?.trim())
   const anyBusy = busyId !== null || batch !== null
@@ -137,7 +151,7 @@ export default function Research({ plays, settings, onResearched }) {
                 >
                   {isBusy ? (
                     <>
-                      <Spinner /> Researching…
+                      <Spinner /> Researching… {elapsed}s
                     </>
                   ) : (
                     <>
