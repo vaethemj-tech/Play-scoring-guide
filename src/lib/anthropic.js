@@ -1,4 +1,4 @@
-import { RESEARCH_MODEL, WEB_SEARCH_TOOL } from '../constants.js'
+import { RESEARCH_MODEL, WEB_SEARCH_TOOLS } from '../constants.js'
 
 const API_URL = 'https://api.anthropic.com/v1/messages'
 
@@ -76,20 +76,52 @@ Return ONLY a JSON object (no markdown, no code fences, no commentary before or 
 If a fact cannot be found, say so plainly in the relevant field rather than inventing it.`
 }
 
-function extractJson(text) {
-  const start = text.indexOf('{')
-  const end = text.lastIndexOf('}')
-  if (start === -1 || end === -1 || end < start) {
-    throw new Error('Could not find a JSON object in the model response.')
+// Attempts to parse a JSON object out of a text candidate. Strips Markdown code
+// fences and takes the outermost { … }. Returns null on failure (never throws).
+function parseJsonCandidate(text) {
+  if (!text) return null
+  const cleaned = text.replace(/```json/gi, '').replace(/```/g, '')
+  const start = cleaned.indexOf('{')
+  const end = cleaned.lastIndexOf('}')
+  if (start === -1 || end === -1 || end < start) return null
+  try {
+    return JSON.parse(cleaned.slice(start, end + 1))
+  } catch {
+    return null
   }
-  return JSON.parse(text.slice(start, end + 1))
 }
 
-function collectText(content) {
-  return (content || [])
-    .filter((b) => b.type === 'text')
-    .map((b) => b.text)
-    .join('\n')
+function textBlocks(content) {
+  return (content || []).filter((b) => b.type === 'text').map((b) => b.text)
+}
+
+// Looks like a tool-version / unsupported-tool error that warrants retrying
+// with the stable web-search tool version.
+function isToolVersionError(err) {
+  return /web_search|input tag|does not match|not.?support|unexpected|tools?\.\d/i.test(
+    err?.message || '',
+  )
+}
+
+// Runs the research conversation with a given web-search tool, resuming through
+// any `pause_turn` pauses the server-side search loop produces.
+async function runConversation(apiKey, prompt, tool) {
+  let messages = [{ role: 'user', content: prompt }]
+  let response
+  for (let i = 0; i < 8; i++) {
+    response = await callAnthropic(apiKey, {
+      model: RESEARCH_MODEL,
+      max_tokens: 8000,
+      tools: [tool],
+      messages,
+    })
+    if (response.stop_reason === 'pause_turn') {
+      messages = [...messages, { role: 'assistant', content: response.content }]
+      continue
+    }
+    break
+  }
+  return response
 }
 
 // Runs AI-powered market research for a single play. Returns the parsed
@@ -101,31 +133,53 @@ export async function runResearch(play, settings) {
     throw new Error('No Anthropic API key set. Add one in Settings before running research.')
   }
 
-  let messages = [{ role: 'user', content: buildPrompt(play, settings) }]
-  let response
+  const prompt = buildPrompt(play, settings)
 
-  // The web-search server tool runs a multi-step loop; it may return
-  // `pause_turn` when it hits its internal iteration limit. Re-send to resume.
-  for (let i = 0; i < 8; i++) {
-    response = await callAnthropic(apiKey, {
-      model: RESEARCH_MODEL,
-      max_tokens: 4000,
-      tools: [WEB_SEARCH_TOOL],
-      messages,
-    })
-    if (response.stop_reason === 'pause_turn') {
-      messages = [...messages, { role: 'assistant', content: response.content }]
-      continue
+  // Try the newer web-search tool first; if the account rejects that tool
+  // version, retry once with the stable version.
+  let response
+  try {
+    response = await runConversation(apiKey, prompt, WEB_SEARCH_TOOLS[0])
+  } catch (err) {
+    if (isToolVersionError(err)) {
+      response = await runConversation(apiKey, prompt, WEB_SEARCH_TOOLS[1])
+    } else {
+      throw err
     }
-    break
   }
 
   if (response.stop_reason === 'refusal') {
     throw new Error('The model declined to research this play.')
   }
 
-  const text = collectText(response.content)
-  const data = extractJson(text)
+  // The final answer is normally the last text block; fall back to the joined
+  // text if needed.
+  const blocks = textBlocks(response.content)
+  const joined = blocks.join('\n').trim()
+  const data =
+    parseJsonCandidate(blocks[blocks.length - 1]) || parseJsonCandidate(joined)
+
+  if (!data) {
+    if (response.stop_reason === 'max_tokens') {
+      throw new Error(
+        'The research response was cut off before it finished (length limit). Please try again.',
+      )
+    }
+    if (!joined) {
+      throw new Error(
+        'The model returned no readable text. This usually means web search is not enabled for your API key — check your Anthropic Console plan/billing.',
+      )
+    }
+    // Graceful fallback: keep the raw text so the research isn't lost.
+    return {
+      licensing: '',
+      productionHistory: '',
+      audienceReception: '',
+      complexity: '',
+      summary: joined,
+      sources: [],
+    }
+  }
 
   return {
     licensing: data.licensing || '',

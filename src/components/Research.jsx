@@ -22,6 +22,7 @@ export default function Research({ plays, settings, onResearched }) {
       toast(`Research complete for "${play.title || 'play'}"`, 'success')
       return true
     } catch (err) {
+      console.error('[research] failed for', play.title, err)
       toast(err.message, 'error')
       return false
     } finally {

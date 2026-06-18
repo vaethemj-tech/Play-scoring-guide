@@ -24,9 +24,14 @@ export const DEFAULT_SETTINGS = {
   maxScore: DEFAULT_MAX_SCORE,
 }
 
-// The model and web-search tool used for AI market research.
+// The model and web-search tools used for AI market research. The newer tool
+// version is tried first; if an account doesn't accept it, research falls back
+// to the stable version.
 export const RESEARCH_MODEL = 'claude-sonnet-4-6'
-export const WEB_SEARCH_TOOL = { type: 'web_search_20260209', name: 'web_search', max_uses: 6 }
+export const WEB_SEARCH_TOOLS = [
+  { type: 'web_search_20260209', name: 'web_search', max_uses: 6 },
+  { type: 'web_search_20250305', name: 'web_search', max_uses: 6 },
+]
 
 export const TABS = [
   { id: 'dashboard', label: 'Dashboard' },
