@@ -25,7 +25,7 @@ export const DEFAULT_SETTINGS = {
 }
 
 // Visible build tag so it's unambiguous which deployed version is loaded.
-export const APP_VERSION = '6'
+export const APP_VERSION = '7'
 
 // The model and web-search tools used for AI market research. The newer tool
 // version is tried first; if an account doesn't accept it, research falls back
@@ -42,6 +42,7 @@ export const TABS = [
   { id: 'dashboard', label: 'Dashboard' },
   { id: 'plays', label: 'Add / Edit Plays' },
   { id: 'research', label: 'Research' },
+  { id: 'compare', label: 'Compare' },
   { id: 'settings', label: 'Settings' },
   { id: 'export', label: 'Export' },
 ]

@@ -3,6 +3,7 @@ import Nav from './components/Nav.jsx'
 import Dashboard from './components/Dashboard.jsx'
 import PlaysManager from './components/PlaysManager.jsx'
 import Research from './components/Research.jsx'
+import Compare from './components/Compare.jsx'
 import Settings from './components/Settings.jsx'
 import Export from './components/Export.jsx'
 import { useToast } from './components/Toast.jsx'
@@ -90,6 +91,7 @@ export default function App() {
         {tab === 'research' && (
           <Research plays={plays} settings={settings} onResearched={saveResearch} />
         )}
+        {tab === 'compare' && <Compare plays={plays} settings={settings} />}
         {tab === 'settings' && (
           <Settings settings={settings} onSave={handleSaveSettings} onResetAll={resetAll} />
         )}

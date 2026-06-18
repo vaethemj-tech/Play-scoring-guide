@@ -1,4 +1,5 @@
 import { RESEARCH_MODEL, WEB_SEARCH_TOOLS } from '../constants.js'
+import { getScore, maxScore } from './scoring.js'
 
 const API_URL = 'https://api.anthropic.com/v1/messages'
 
@@ -302,4 +303,71 @@ export async function runResearch(play, settings) {
     summary: data.summary || '',
     sources: Array.isArray(data.sources) ? data.sources : [],
   }
+}
+
+function castText(play) {
+  if (play.castMin && play.castMax) return `${play.castMin}-${play.castMax}`
+  if (play.castMin) return `${play.castMin}+`
+  if (play.castMax) return `up to ${play.castMax}`
+  return 'unknown'
+}
+
+function buildComparePrompt(plays, settings) {
+  const max = maxScore(settings)
+  const sections = plays
+    .map((p, i) => {
+      const r = p.research
+      const research = r
+        ? [
+            r.summary && `Summary: ${r.summary}`,
+            r.licensing && `Licensing/royalties: ${r.licensing}`,
+            r.productionHistory && `Recent production history: ${r.productionHistory}`,
+            r.audienceReception && `Audience reception: ${r.audienceReception}`,
+            r.complexity && `Production complexity/budget: ${r.complexity}`,
+          ]
+            .filter(Boolean)
+            .join('\n')
+        : 'No market research has been run for this play.'
+      return `PLAY ${i + 1}: ${p.title || '(untitled)'}${p.playwright ? ' by ' + p.playwright : ''}
+Score: ${getScore(p)} / ${max}
+Genre: ${p.genre || 'unknown'} | Cast: ${castText(p)} | Runtime: ${p.runtime ? p.runtime + ' min' : 'unknown'}
+Research:
+${research}`
+    })
+    .join('\n\n---\n\n')
+
+  return `You are advising the board of ${settings.theaterName || 'a community theater'} on which play(s) to program. Compare and contrast the plays below using BOTH their evaluation scores and their market research.
+
+Cover the key trade-offs: artistic value, audience appeal, licensing cost and availability, production complexity and budget, and box-office potential. Note where the score and the research agree or disagree (e.g. a high score but expensive rights). Then give a clear recommendation that ranks the plays for the season, with a one-sentence rationale for the top choice.
+
+Be concise and board-ready. Use short paragraphs or bullet points. Do not invent facts beyond the scores and research provided; if research is missing for a play, say so.
+
+${sections}`
+}
+
+// Generates a board-ready compare-and-contrast write-up from the selected
+// plays' scores and saved research. Plain text call (no web search) — fast.
+export async function runComparison(plays, settings) {
+  const apiKey = settings.apiKey?.trim()
+  if (!apiKey) {
+    throw new Error('No Anthropic API key set. Add one in Settings to generate an AI comparison.')
+  }
+  if (!plays || plays.length < 2) {
+    throw new Error('Select at least two plays to compare.')
+  }
+
+  const res = await callAnthropic(apiKey, {
+    model: RESEARCH_MODEL,
+    max_tokens: 2000,
+    messages: [{ role: 'user', content: buildComparePrompt(plays, settings) }],
+  })
+
+  const text = (res.content || [])
+    .filter((b) => b.type === 'text')
+    .map((b) => b.text)
+    .join('\n')
+    .trim()
+
+  if (!text) throw new Error('The model returned no comparison text. Please try again.')
+  return text
 }
