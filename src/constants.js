@@ -29,8 +29,10 @@ export const DEFAULT_SETTINGS = {
 // to the stable version.
 export const RESEARCH_MODEL = 'claude-sonnet-4-6'
 export const WEB_SEARCH_TOOLS = [
-  { type: 'web_search_20260209', name: 'web_search', max_uses: 4 },
-  { type: 'web_search_20250305', name: 'web_search', max_uses: 4 },
+  // Stable version first: it returns results directly (no extra result-filtering
+  // code step), which is noticeably faster. The newer version is the fallback.
+  { type: 'web_search_20250305', name: 'web_search', max_uses: 3 },
+  { type: 'web_search_20260209', name: 'web_search', max_uses: 3 },
 ]
 
 export const TABS = [

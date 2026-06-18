@@ -61,6 +61,8 @@ function buildPrompt(play, settings) {
 
   return `You are a market research assistant for a community theater board. Use web search to research the play below, then return a single structured report.
 
+Be efficient: perform at most 3 web searches total, then stop searching and write the report. Keep each field to 2–4 sentences.
+
 PLAY
 - Title: ${play.title || '(untitled)'}
 - Playwright: ${play.playwright || 'unknown'}
@@ -229,7 +231,7 @@ export async function runResearch(play, settings) {
   const prompt = buildPrompt(play, settings)
   const body = (tool) => ({
     model: RESEARCH_MODEL,
-    max_tokens: 6000,
+    max_tokens: 4000,
     tools: [tool],
     messages: [{ role: 'user', content: prompt }],
   })
