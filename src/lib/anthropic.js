@@ -6,17 +6,27 @@ const API_URL = 'https://api.anthropic.com/v1/messages'
 // `anthropic-dangerous-direct-browser-access` header opts in to browser use;
 // the API key is read from the user's localStorage settings and sent only to
 // Anthropic.
-async function callAnthropic(apiKey, body) {
-  const res = await fetch(API_URL, {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true',
-    },
-    body: JSON.stringify(body),
-  })
+async function callAnthropic(apiKey, body, signal) {
+  let res
+  try {
+    res = await fetch(API_URL, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
+      body: JSON.stringify(body),
+      signal,
+    })
+  } catch (err) {
+    if (err?.name === 'AbortError') throw err
+    // Network-level failure (offline, CORS, ad-blocker, DNS, etc.)
+    throw new Error(
+      `Could not reach the Anthropic API (${err.message}). Check your connection, VPN, or ad-blocker.`,
+    )
+  }
 
   if (!res.ok) {
     let detail = ''
@@ -105,16 +115,20 @@ function isToolVersionError(err) {
 
 // Runs the research conversation with a given web-search tool, resuming through
 // any `pause_turn` pauses the server-side search loop produces.
-async function runConversation(apiKey, prompt, tool) {
+async function runConversation(apiKey, prompt, tool, signal) {
   let messages = [{ role: 'user', content: prompt }]
   let response
-  for (let i = 0; i < 8; i++) {
-    response = await callAnthropic(apiKey, {
-      model: RESEARCH_MODEL,
-      max_tokens: 8000,
-      tools: [tool],
-      messages,
-    })
+  for (let i = 0; i < 6; i++) {
+    response = await callAnthropic(
+      apiKey,
+      {
+        model: RESEARCH_MODEL,
+        max_tokens: 6000,
+        tools: [tool],
+        messages,
+      },
+      signal,
+    )
     if (response.stop_reason === 'pause_turn') {
       messages = [...messages, { role: 'assistant', content: response.content }]
       continue
@@ -135,17 +149,34 @@ export async function runResearch(play, settings) {
 
   const prompt = buildPrompt(play, settings)
 
-  // Try the newer web-search tool first; if the account rejects that tool
-  // version, retry once with the stable version.
+  // Hard overall deadline so a stalled request can never spin forever.
+  const controller = new AbortController()
+  const DEADLINE_MS = 150000 // 2.5 minutes
+  const timer = setTimeout(() => controller.abort(), DEADLINE_MS)
+
   let response
   try {
-    response = await runConversation(apiKey, prompt, WEB_SEARCH_TOOLS[0])
-  } catch (err) {
-    if (isToolVersionError(err)) {
-      response = await runConversation(apiKey, prompt, WEB_SEARCH_TOOLS[1])
-    } else {
-      throw err
+    // Try the newer web-search tool first; if the account rejects that tool
+    // version, retry once with the stable version.
+    try {
+      response = await runConversation(apiKey, prompt, WEB_SEARCH_TOOLS[0], controller.signal)
+    } catch (err) {
+      if (controller.signal.aborted || err?.name === 'AbortError') throw err
+      if (isToolVersionError(err)) {
+        response = await runConversation(apiKey, prompt, WEB_SEARCH_TOOLS[1], controller.signal)
+      } else {
+        throw err
+      }
     }
+  } catch (err) {
+    if (controller.signal.aborted || err?.name === 'AbortError') {
+      throw new Error(
+        'Research timed out after 2.5 minutes. Web search may be slow or not enabled for your API key — try again, or verify your plan/billing in the Anthropic Console.',
+      )
+    }
+    throw err
+  } finally {
+    clearTimeout(timer)
   }
 
   if (response.stop_reason === 'refusal') {

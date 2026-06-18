@@ -75,6 +75,12 @@ export default function Research({ plays, settings, onResearched }) {
         </button>
       </div>
 
+      <p className="mb-4 text-sm text-slate-500">
+        Research uses live web search and typically takes 20–90 seconds per play. If a run is still
+        going after about 2½ minutes it will stop with an error — refresh the page to cancel a stuck
+        run.
+      </p>
+
       {!hasKey && (
         <div className="mb-5 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
           Add your Anthropic API key in <strong>Settings</strong> to enable AI market research.

@@ -29,8 +29,8 @@ export const DEFAULT_SETTINGS = {
 // to the stable version.
 export const RESEARCH_MODEL = 'claude-sonnet-4-6'
 export const WEB_SEARCH_TOOLS = [
-  { type: 'web_search_20260209', name: 'web_search', max_uses: 6 },
-  { type: 'web_search_20250305', name: 'web_search', max_uses: 6 },
+  { type: 'web_search_20260209', name: 'web_search', max_uses: 4 },
+  { type: 'web_search_20250305', name: 'web_search', max_uses: 4 },
 ]
 
 export const TABS = [
