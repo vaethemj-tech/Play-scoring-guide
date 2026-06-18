@@ -2,11 +2,23 @@ import { useState } from 'react'
 import { Plus, Trash } from './Icons.jsx'
 import { DEFAULT_CATEGORIES } from '../constants.js'
 import { uid } from '../lib/storage.js'
+import { testApiKey } from '../lib/anthropic.js'
 import { useToast } from './Toast.jsx'
 
 export default function Settings({ settings, onSave, onResetAll }) {
   const toast = useToast()
   const [draft, setDraft] = useState(() => structuredClone(settings))
+  const [keyTest, setKeyTest] = useState({ status: 'idle', message: '' })
+
+  async function handleTestKey() {
+    setKeyTest({ status: 'testing', message: '' })
+    try {
+      await testApiKey(draft.apiKey)
+      setKeyTest({ status: 'ok', message: 'Key works — the Anthropic API responded successfully.' })
+    } catch (err) {
+      setKeyTest({ status: 'fail', message: err.message })
+    }
+  }
 
   function set(field, value) {
     setDraft((d) => ({ ...d, [field]: value }))
@@ -93,10 +105,33 @@ export default function Settings({ settings, onSave, onResetAll }) {
           type="password"
           className="field-input font-mono"
           value={draft.apiKey}
-          onChange={(e) => set('apiKey', e.target.value)}
+          onChange={(e) => {
+            set('apiKey', e.target.value)
+            setKeyTest({ status: 'idle', message: '' })
+          }}
           placeholder="sk-ant-…"
           autoComplete="off"
         />
+        <div className="mt-3 flex items-center gap-3">
+          <button
+            type="button"
+            className="btn-ghost"
+            onClick={handleTestKey}
+            disabled={keyTest.status === 'testing' || !draft.apiKey.trim()}
+          >
+            {keyTest.status === 'testing' ? 'Testing…' : 'Test key'}
+          </button>
+          {keyTest.status === 'ok' && (
+            <span className="text-sm font-medium text-green-700">✓ {keyTest.message}</span>
+          )}
+          {keyTest.status === 'fail' && (
+            <span className="text-sm font-medium text-red-700">✗ {keyTest.message}</span>
+          )}
+        </div>
+        <p className="mt-2 text-xs text-slate-400">
+          “Test key” makes a tiny call to the Anthropic API to confirm the key works. You don't need
+          to save first.
+        </p>
       </div>
 
       <div className="card p-5">

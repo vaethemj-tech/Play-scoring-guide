@@ -31,6 +31,19 @@ async function callAnthropic(apiKey, body) {
   return res.json()
 }
 
+// Makes a minimal API call to confirm the key works and the browser can reach
+// the Anthropic API. Throws with a descriptive message on failure.
+export async function testApiKey(apiKey) {
+  const key = apiKey?.trim()
+  if (!key) throw new Error('No API key provided.')
+  await callAnthropic(key, {
+    model: RESEARCH_MODEL,
+    max_tokens: 16,
+    messages: [{ role: 'user', content: 'Reply with the single word: ok' }],
+  })
+  return true
+}
+
 function buildPrompt(play, settings) {
   const market = settings.theaterName
     ? `the community/regional theater market relevant to "${settings.theaterName}"`
