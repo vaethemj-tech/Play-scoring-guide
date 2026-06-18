@@ -77,11 +77,11 @@ export default function App() {
     <div className="min-h-screen bg-slate-100/40">
       <Nav active={tab} onChange={setTab} />
       <main className="mx-auto max-w-6xl px-4 py-8">
-        {tab === 'dashboard' && <Dashboard plays={plays} categories={settings.categories} />}
+        {tab === 'dashboard' && <Dashboard plays={plays} settings={settings} />}
         {tab === 'plays' && (
           <PlaysManager
             plays={plays}
-            categories={settings.categories}
+            settings={settings}
             onSave={upsertPlay}
             onDelete={deletePlay}
             onImport={importPlays}

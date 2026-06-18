@@ -4,7 +4,7 @@ import CsvImport from './CsvImport.jsx'
 import EmptyState from './EmptyState.jsx'
 import ScoreBadge from './ScoreBadge.jsx'
 import { Edit, Trash, Plus, Download, ChevronUp, ChevronDown } from './Icons.jsx'
-import { sortPlays, totalScore, scoreTier } from '../lib/scoring.js'
+import { sortPlays, getScore, scoreTier, maxScore } from '../lib/scoring.js'
 
 const COLUMNS = [
   { key: 'title', label: 'Title' },
@@ -12,15 +12,16 @@ const COLUMNS = [
   { key: 'genre', label: 'Genre' },
   { key: 'runtime', label: 'Runtime' },
   { key: 'castMax', label: 'Cast' },
-  { key: 'total', label: 'Score' },
+  { key: 'score', label: 'Score' },
 ]
 
-export default function PlaysManager({ plays, categories, onSave, onDelete, onImport }) {
+export default function PlaysManager({ plays, settings, onSave, onDelete, onImport }) {
   const [mode, setMode] = useState('list') // 'list' | 'form' | 'import'
   const [editing, setEditing] = useState(null)
-  const [sort, setSort] = useState({ key: 'total', dir: 'desc' })
+  const [sort, setSort] = useState({ key: 'score', dir: 'desc' })
 
-  const sorted = sortPlays(plays, categories, sort.key, sort.dir)
+  const max = maxScore(settings)
+  const sorted = sortPlays(plays, sort.key, sort.dir)
 
   function startAdd() {
     setEditing(null)
@@ -48,7 +49,7 @@ export default function PlaysManager({ plays, categories, onSave, onDelete, onIm
           {editing ? 'Edit Play' : 'Add a Play'}
         </h2>
         <PlayForm
-          categories={categories}
+          settings={settings}
           initial={editing}
           onSave={handleSave}
           onCancel={() => {
@@ -65,7 +66,7 @@ export default function PlaysManager({ plays, categories, onSave, onDelete, onIm
       <div className="mx-auto max-w-3xl">
         <h2 className="mb-4 text-xl font-bold text-slate-800">Import Plays</h2>
         <CsvImport
-          categories={categories}
+          settings={settings}
           onImport={(rows) => {
             onImport(rows)
             setMode('list')
@@ -93,7 +94,7 @@ export default function PlaysManager({ plays, categories, onSave, onDelete, onIm
       {plays.length === 0 ? (
         <EmptyState
           title="No plays yet"
-          message="Add your first play with the scoring form, or import a spreadsheet of plays you've already scored."
+          message="Add your first play and enter the score it already received, or import a spreadsheet of plays you've already scored."
           action={
             <div className="flex justify-center gap-2">
               <button className="btn-primary" onClick={startAdd}>
@@ -145,8 +146,8 @@ export default function PlaysManager({ plays, categories, onSave, onDelete, onIm
                       : '—'}
                   </td>
                   <td className="px-4 py-3">
-                    <ScoreBadge tier={scoreTier(p, categories)}>
-                      {totalScore(p, categories)}
+                    <ScoreBadge tier={scoreTier(p, settings)} title={`${getScore(p)} of ${max}`}>
+                      {getScore(p)}
                     </ScoreBadge>
                   </td>
                   <td className="px-4 py-3">

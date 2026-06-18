@@ -12,7 +12,7 @@ export default function Export({ plays, settings }) {
 
   function handleGenerate() {
     try {
-      const ranked = sortPlays(plays, settings.categories, 'total', 'desc')
+      const ranked = sortPlays(plays, 'score', 'desc')
       generateReport(ranked, settings, { topN: limitTop ? Number(topN) : null })
       toast('Report generated', 'success')
     } catch (err) {

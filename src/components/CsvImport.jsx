@@ -1,9 +1,8 @@
 import { useRef, useState } from 'react'
 import Papa from 'papaparse'
 import { uid } from '../lib/storage.js'
+import { maxScore } from '../lib/scoring.js'
 
-// Base play fields available as mapping targets, plus one target per scoring
-// category (added dynamically).
 const BASE_FIELDS = [
   { key: 'title', label: 'Title' },
   { key: 'playwright', label: 'Playwright' },
@@ -13,12 +12,13 @@ const BASE_FIELDS = [
   { key: 'castMin', label: 'Cast Min' },
   { key: 'castMax', label: 'Cast Max' },
   { key: 'staging', label: 'Staging Notes' },
+  { key: 'score', label: 'Score (total)' },
 ]
 
 // Attempts to auto-match a CSV header to a field key.
-function autoMatch(header, fields) {
+function autoMatch(header) {
   const norm = header.toLowerCase().replace(/[^a-z0-9]/g, '')
-  const found = fields.find((f) => {
+  const found = BASE_FIELDS.find((f) => {
     const fk = f.label.toLowerCase().replace(/[^a-z0-9]/g, '')
     const kk = f.key.toLowerCase()
     return norm === fk || norm === kk || norm.includes(kk)
@@ -26,17 +26,13 @@ function autoMatch(header, fields) {
   return found ? found.key : ''
 }
 
-export default function CsvImport({ categories, onImport, onCancel }) {
+export default function CsvImport({ settings, onImport, onCancel }) {
   const fileRef = useRef(null)
   const [rows, setRows] = useState([])
   const [headers, setHeaders] = useState([])
   const [mapping, setMapping] = useState({})
   const [error, setError] = useState('')
-
-  const fields = [
-    ...BASE_FIELDS,
-    ...categories.map((c) => ({ key: `score:${c.id}`, label: `Score — ${c.label}` })),
-  ]
+  const max = maxScore(settings)
 
   function handleFile(e) {
     const file = e.target.files?.[0]
@@ -52,10 +48,9 @@ export default function CsvImport({ categories, onImport, onCancel }) {
         const hdrs = results.meta.fields || []
         setHeaders(hdrs)
         setRows(results.data)
-        // Pre-fill mapping by auto-matching each CSV column to a field.
         const initialMap = {}
         hdrs.forEach((h) => {
-          initialMap[h] = autoMatch(h, fields)
+          initialMap[h] = autoMatch(h)
         })
         setMapping(initialMap)
       },
@@ -70,29 +65,29 @@ export default function CsvImport({ categories, onImport, onCancel }) {
       if (fieldKey) fieldToHeader[fieldKey] = header
     })
 
+    const get = (row, k) => {
+      const h = fieldToHeader[k]
+      return h ? (row[h] ?? '').toString().trim() : ''
+    }
+
     return rows
       .map((row) => {
-        const scores = {}
-        categories.forEach((c) => {
-          const header = fieldToHeader[`score:${c.id}`]
-          const raw = header ? Number(row[header]) : NaN
-          scores[c.id] = Number.isFinite(raw) ? Math.min(10, Math.max(1, raw)) : 5
-        })
-        const get = (k) => {
-          const h = fieldToHeader[k]
-          return h ? (row[h] ?? '').toString().trim() : ''
+        const rawScore = get(row, 'score')
+        let score = ''
+        if (rawScore !== '') {
+          score = Math.min(max, Math.max(0, Number(rawScore) || 0))
         }
         return {
           id: uid(),
-          title: get('title'),
-          playwright: get('playwright'),
-          genre: get('genre'),
-          yearWritten: get('yearWritten'),
-          runtime: get('runtime'),
-          castMin: get('castMin'),
-          castMax: get('castMax'),
-          staging: get('staging'),
-          scores,
+          title: get(row, 'title'),
+          playwright: get(row, 'playwright'),
+          genre: get(row, 'genre'),
+          yearWritten: get(row, 'yearWritten'),
+          runtime: get(row, 'runtime'),
+          castMin: get(row, 'castMin'),
+          castMax: get(row, 'castMax'),
+          staging: get(row, 'staging'),
+          score,
           research: null,
           researchedAt: null,
         }
@@ -113,8 +108,8 @@ export default function CsvImport({ categories, onImport, onCancel }) {
     <div className="card p-5">
       <h3 className="mb-2 text-base font-semibold text-slate-800">Import Plays from CSV</h3>
       <p className="mb-4 text-sm text-slate-500">
-        Upload a spreadsheet (CSV) of plays. The first row should contain column headers; you can
-        then map each column to a field below.
+        Upload a spreadsheet (CSV) of plays. The first row should contain column headers; map each
+        column to a field below, including the total score each play already received.
       </p>
 
       <input
@@ -146,7 +141,7 @@ export default function CsvImport({ categories, onImport, onCancel }) {
                   onChange={(e) => setMapping((m) => ({ ...m, [h]: e.target.value }))}
                 >
                   <option value="">— ignore —</option>
-                  {fields.map((f) => (
+                  {BASE_FIELDS.map((f) => (
                     <option key={f.key} value={f.key}>
                       {f.label}
                     </option>

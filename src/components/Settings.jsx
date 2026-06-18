@@ -1,7 +1,5 @@
 import { useState } from 'react'
-import { Plus, Trash } from './Icons.jsx'
-import { DEFAULT_CATEGORIES } from '../constants.js'
-import { uid } from '../lib/storage.js'
+import { DEFAULT_MAX_SCORE } from '../constants.js'
 import { testApiKey } from '../lib/anthropic.js'
 import { useToast } from './Toast.jsx'
 
@@ -24,45 +22,13 @@ export default function Settings({ settings, onSave, onResetAll }) {
     setDraft((d) => ({ ...d, [field]: value }))
   }
 
-  function setCategory(id, field, value) {
-    setDraft((d) => ({
-      ...d,
-      categories: d.categories.map((c) => (c.id === id ? { ...c, [field]: value } : c)),
-    }))
-  }
-
-  function addCategory() {
-    setDraft((d) => ({
-      ...d,
-      categories: [
-        ...d.categories,
-        { id: uid(), label: 'New Category', description: '', weight: 1 },
-      ],
-    }))
-  }
-
-  function removeCategory(id) {
-    setDraft((d) => ({ ...d, categories: d.categories.filter((c) => c.id !== id) }))
-  }
-
-  function restoreDefaultCategories() {
-    setDraft((d) => ({ ...d, categories: structuredClone(DEFAULT_CATEGORIES) }))
-  }
-
   function handleSave() {
-    if (!draft.categories.length) {
-      toast('You need at least one scoring category.', 'error')
+    const max = Number(draft.maxScore)
+    if (!Number.isFinite(max) || max <= 0) {
+      toast('Maximum score must be a positive number.', 'error')
       return
     }
-    const cleaned = {
-      ...draft,
-      categories: draft.categories.map((c) => ({
-        ...c,
-        weight: Number(c.weight) || 0,
-        label: c.label.trim() || 'Untitled',
-      })),
-    }
-    onSave(cleaned)
+    onSave({ ...draft, maxScore: max })
     toast('Settings saved', 'success')
   }
 
@@ -92,6 +58,34 @@ export default function Settings({ settings, onSave, onResetAll }) {
               placeholder="e.g. 2026"
             />
           </div>
+        </div>
+      </div>
+
+      <div className="card p-5">
+        <h3 className="mb-2 text-base font-semibold text-slate-800">Scoring</h3>
+        <p className="mb-4 text-sm text-slate-500">
+          Plays are scored against your rubric outside the app, and you enter each play's total
+          here. Set the maximum possible score so rankings and color badges scale correctly.
+        </p>
+        <div className="flex items-end gap-3">
+          <div>
+            <label className="field-label">Maximum score</label>
+            <input
+              type="number"
+              min="1"
+              step="1"
+              className="field-input w-32 text-lg font-semibold"
+              value={draft.maxScore}
+              onChange={(e) => set('maxScore', e.target.value)}
+            />
+          </div>
+          <button
+            type="button"
+            className="btn-ghost mb-0.5"
+            onClick={() => set('maxScore', DEFAULT_MAX_SCORE)}
+          >
+            Reset to {DEFAULT_MAX_SCORE}
+          </button>
         </div>
       </div>
 
@@ -131,53 +125,6 @@ export default function Settings({ settings, onSave, onResetAll }) {
         <p className="mt-2 text-xs text-slate-400">
           “Test key” makes a tiny call to the Anthropic API to confirm the key works. You don't need
           to save first.
-        </p>
-      </div>
-
-      <div className="card p-5">
-        <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-base font-semibold text-slate-800">Scoring Categories</h3>
-          <button className="text-sm font-medium text-accent hover:text-primary" onClick={restoreDefaultCategories}>
-            Restore defaults
-          </button>
-        </div>
-        <div className="space-y-3">
-          <div className="hidden grid-cols-[1fr_5rem_2.5rem] gap-3 px-1 text-xs font-medium uppercase tracking-wide text-slate-400 sm:grid">
-            <span>Label</span>
-            <span>Weight</span>
-            <span />
-          </div>
-          {draft.categories.map((c) => (
-            <div key={c.id} className="grid grid-cols-[1fr_5rem_2.5rem] items-center gap-3">
-              <input
-                className="field-input"
-                value={c.label}
-                onChange={(e) => setCategory(c.id, 'label', e.target.value)}
-              />
-              <input
-                type="number"
-                min="0"
-                step="0.5"
-                className="field-input"
-                value={c.weight}
-                onChange={(e) => setCategory(c.id, 'weight', e.target.value)}
-              />
-              <button
-                className="flex h-9 items-center justify-center rounded-md text-slate-400 hover:bg-red-50 hover:text-red-600"
-                title="Remove category"
-                onClick={() => removeCategory(c.id)}
-              >
-                <Trash />
-              </button>
-            </div>
-          ))}
-        </div>
-        <button className="btn-ghost mt-4" onClick={addCategory}>
-          <Plus /> Add Category
-        </button>
-        <p className="mt-3 text-xs text-slate-400">
-          Each category is scored 1–10. A play's total is the sum of (score × weight) across all
-          categories.
         </p>
       </div>
 

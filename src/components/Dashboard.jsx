@@ -3,21 +3,15 @@ import EmptyState from './EmptyState.jsx'
 import ScoreBadge from './ScoreBadge.jsx'
 import ResearchPanel from './ResearchPanel.jsx'
 import { ChevronDown, ChevronUp } from './Icons.jsx'
-import {
-  totalScore,
-  maxScore,
-  scoreTier,
-  sortPlays,
-  averageOfAll,
-} from '../lib/scoring.js'
+import { getScore, maxScore, scoreTier, sortPlays, averageOfAll } from '../lib/scoring.js'
 
-function SummaryCard({ plays, categories }) {
+function SummaryCard({ plays, settings }) {
   const top = useMemo(() => {
     if (!plays.length) return null
-    return sortPlays(plays, categories, 'total', 'desc')[0]
-  }, [plays, categories])
+    return sortPlays(plays, 'score', 'desc')[0]
+  }, [plays])
 
-  const avg = averageOfAll(plays, categories)
+  const avg = averageOfAll(plays)
   const researched = plays.filter((p) => p.researchedAt).length
 
   const stats = [
@@ -50,9 +44,10 @@ const EMPTY_FILTERS = {
   minScore: '',
 }
 
-export default function Dashboard({ plays, categories }) {
+export default function Dashboard({ plays, settings }) {
   const [filters, setFilters] = useState(EMPTY_FILTERS)
   const [expanded, setExpanded] = useState(null)
+  const max = maxScore(settings)
 
   const genres = useMemo(
     () => [...new Set(plays.map((p) => p.genre).filter(Boolean))].sort(),
@@ -60,7 +55,7 @@ export default function Dashboard({ plays, categories }) {
   )
 
   const filtered = useMemo(() => {
-    const ranked = sortPlays(plays, categories, 'total', 'desc')
+    const ranked = sortPlays(plays, 'score', 'desc')
     return ranked.filter((p) => {
       if (filters.genre && p.genre !== filters.genre) return false
       const cMin = Number(p.castMin) || 0
@@ -70,10 +65,10 @@ export default function Dashboard({ plays, categories }) {
       const rt = Number(p.runtime) || 0
       if (filters.runtimeMin && rt && rt < Number(filters.runtimeMin)) return false
       if (filters.runtimeMax && rt && rt > Number(filters.runtimeMax)) return false
-      if (filters.minScore && totalScore(p, categories) < Number(filters.minScore)) return false
+      if (filters.minScore && getScore(p) < Number(filters.minScore)) return false
       return true
     })
-  }, [plays, categories, filters])
+  }, [plays, filters])
 
   if (plays.length === 0) {
     return (
@@ -81,13 +76,12 @@ export default function Dashboard({ plays, categories }) {
         <h2 className="mb-4 text-xl font-bold text-slate-800">Dashboard</h2>
         <EmptyState
           title="Your dashboard is empty"
-          message="Once you add or import plays, they'll appear here ranked by total score with color-coded badges and expandable research."
+          message="Once you add or import plays with their scores, they'll appear here ranked by score with color-coded badges and expandable research."
         />
       </div>
     )
   }
 
-  const max = maxScore(categories)
   const filtersActive = JSON.stringify(filters) !== JSON.stringify(EMPTY_FILTERS)
 
   function setFilter(key, value) {
@@ -97,7 +91,7 @@ export default function Dashboard({ plays, categories }) {
   return (
     <div>
       <h2 className="mb-4 text-xl font-bold text-slate-800">Dashboard</h2>
-      <SummaryCard plays={plays} categories={categories} />
+      <SummaryCard plays={plays} settings={settings} />
 
       {/* Filters */}
       <div className="card mb-6 p-4">
@@ -203,8 +197,8 @@ export default function Dashboard({ plays, categories }) {
                     Researched
                   </span>
                 )}
-                <ScoreBadge tier={scoreTier(p, categories)} title={`${totalScore(p, categories)} of ${max}`}>
-                  {totalScore(p, categories)}
+                <ScoreBadge tier={scoreTier(p, settings)} title={`${getScore(p)} of ${max}`}>
+                  {getScore(p)}
                 </ScoreBadge>
                 {isOpen ? <ChevronUp /> : <ChevronDown />}
               </button>
@@ -213,28 +207,33 @@ export default function Dashboard({ plays, categories }) {
                 <div className="border-t border-slate-100 bg-slate-50/50 px-4 py-4">
                   <div className="grid gap-6 md:grid-cols-2">
                     <div>
-                      <h4 className="mb-2 text-sm font-semibold text-primary">Scoring Breakdown</h4>
-                      <table className="w-full text-sm">
-                        <tbody>
-                          {categories.map((c) => (
-                            <tr key={c.id} className="border-b border-slate-100 last:border-0">
-                              <td className="py-1.5 text-slate-600">{c.label}</td>
-                              <td className="py-1.5 text-right font-medium text-slate-800">
-                                {p.scores?.[c.id] ?? 0}
-                                {c.weight !== 1 && (
-                                  <span className="text-slate-400"> ×{c.weight}</span>
-                                )}
-                              </td>
-                            </tr>
-                          ))}
-                          <tr>
-                            <td className="pt-2 font-semibold text-slate-700">Total</td>
-                            <td className="pt-2 text-right font-bold text-primary">
-                              {totalScore(p, categories)} / {max}
-                            </td>
-                          </tr>
-                        </tbody>
-                      </table>
+                      <h4 className="mb-2 text-sm font-semibold text-primary">Details</h4>
+                      <dl className="space-y-1.5 text-sm">
+                        <div className="flex justify-between border-b border-slate-100 pb-1.5">
+                          <dt className="text-slate-600">Score</dt>
+                          <dd className="font-bold text-primary">
+                            {getScore(p)} / {max}
+                          </dd>
+                        </div>
+                        {p.yearWritten && (
+                          <div className="flex justify-between">
+                            <dt className="text-slate-600">Year written</dt>
+                            <dd className="text-slate-800">{p.yearWritten}</dd>
+                          </div>
+                        )}
+                        <div className="flex justify-between">
+                          <dt className="text-slate-600">Cast size</dt>
+                          <dd className="text-slate-800">
+                            {p.castMin || p.castMax
+                              ? `${p.castMin || '?'}–${p.castMax || '?'}`
+                              : '—'}
+                          </dd>
+                        </div>
+                        <div className="flex justify-between">
+                          <dt className="text-slate-600">Runtime</dt>
+                          <dd className="text-slate-800">{p.runtime ? `${p.runtime} min` : '—'}</dd>
+                        </div>
+                      </dl>
                       {p.staging && (
                         <div className="mt-4">
                           <h4 className="mb-1 text-sm font-semibold text-primary">Staging Notes</h4>

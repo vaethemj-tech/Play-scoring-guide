@@ -1,30 +1,31 @@
-// Scoring helpers. A play's total score is the weight-multiplied sum of each
-// category score (each 1–10). Badge color is keyed to the weighted average so
-// it stays meaningful even when categories are renamed or reweighted.
+// Scoring helpers. Each play stores a single received total score (entered by
+// the user, out of a configurable maximum — default 80). Badge color is keyed
+// to the score as a percentage of the maximum.
+import { DEFAULT_MAX_SCORE } from '../constants.js'
 
-export function totalScore(play, categories) {
-  if (!play?.scores) return 0
-  return categories.reduce((sum, cat) => {
-    const v = Number(play.scores[cat.id]) || 0
-    return sum + v * (Number(cat.weight) || 0)
-  }, 0)
+// Returns a play's score. Falls back to summing legacy per-category scores so
+// plays entered under the old grading model keep their value.
+export function getScore(play) {
+  if (!play) return 0
+  if (Number.isFinite(Number(play.score)) && play.score !== '' && play.score != null) {
+    return Number(play.score)
+  }
+  if (play.scores && typeof play.scores === 'object') {
+    return Object.values(play.scores).reduce((s, v) => s + (Number(v) || 0), 0)
+  }
+  return 0
 }
 
-export function maxScore(categories) {
-  return categories.reduce((sum, cat) => sum + 10 * (Number(cat.weight) || 0), 0)
+export function maxScore(settings) {
+  return Number(settings?.maxScore) || DEFAULT_MAX_SCORE
 }
 
-export function weightedAverage(play, categories) {
-  const totalWeight = categories.reduce((s, c) => s + (Number(c.weight) || 0), 0)
-  if (!totalWeight) return 0
-  return totalScore(play, categories) / totalWeight
-}
-
-// Returns a tier used for color-coded badges: 'high' | 'mid' | 'low'.
-export function scoreTier(play, categories) {
-  const avg = weightedAverage(play, categories)
-  if (avg >= 7) return 'high'
-  if (avg >= 4) return 'mid'
+// Tier used for color-coded badges: 'high' | 'mid' | 'low'.
+export function scoreTier(play, settings) {
+  const max = maxScore(settings)
+  const pct = max ? getScore(play) / max : 0
+  if (pct >= 0.7) return 'high'
+  if (pct >= 0.4) return 'mid'
   return 'low'
 }
 
@@ -34,15 +35,15 @@ export const TIER_CLASSES = {
   low: 'bg-red-100 text-red-800 border border-red-300',
 }
 
-export function sortPlays(plays, categories, key, dir = 'asc') {
+export function sortPlays(plays, key, dir = 'asc') {
   const factor = dir === 'asc' ? 1 : -1
   const copy = [...plays]
   copy.sort((a, b) => {
     let av
     let bv
-    if (key === 'total') {
-      av = totalScore(a, categories)
-      bv = totalScore(b, categories)
+    if (key === 'score') {
+      av = getScore(a)
+      bv = getScore(b)
     } else if (key === 'castMax' || key === 'castMin' || key === 'runtime' || key === 'yearWritten') {
       av = Number(a[key]) || 0
       bv = Number(b[key]) || 0
@@ -57,8 +58,8 @@ export function sortPlays(plays, categories, key, dir = 'asc') {
   return copy
 }
 
-export function averageOfAll(plays, categories) {
+export function averageOfAll(plays) {
   if (!plays.length) return 0
-  const sum = plays.reduce((s, p) => s + totalScore(p, categories), 0)
+  const sum = plays.reduce((s, p) => s + getScore(p), 0)
   return sum / plays.length
 }

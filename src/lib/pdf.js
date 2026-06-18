@@ -1,6 +1,6 @@
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
-import { totalScore, maxScore } from './scoring.js'
+import { getScore, maxScore } from './scoring.js'
 
 const PRIMARY = [27, 79, 138] // #1B4F8A
 const ACCENT = [46, 117, 182] // #2E75B6
@@ -19,8 +19,7 @@ export function generateReport(rankedPlays, settings, options = {}) {
   const doc = new jsPDF({ unit: 'pt', format: 'letter' })
   const pageW = doc.internal.pageSize.getWidth()
   const pageH = doc.internal.pageSize.getHeight()
-  const categories = settings.categories
-  const max = maxScore(categories)
+  const max = maxScore(settings)
 
   const plays =
     options.topN && options.topN > 0 ? rankedPlays.slice(0, options.topN) : rankedPlays
@@ -66,7 +65,7 @@ export function generateReport(rankedPlays, settings, options = {}) {
       p.title || '(untitled)',
       p.playwright || '—',
       p.genre || '—',
-      `${totalScore(p, categories)} / ${max}`,
+      `${getScore(p)} / ${max}`,
       p.researchedAt ? 'Yes' : 'No',
     ]),
     styles: { fontSize: 10, cellPadding: 6 },
@@ -94,29 +93,22 @@ export function generateReport(rankedPlays, settings, options = {}) {
       .join('  •  ')
     doc.text(meta, 48, 76)
 
+    let y = 100
     if (p.staging) {
       doc.setFontSize(10)
       const stagingLines = doc.splitTextToSize(`Staging notes: ${p.staging}`, pageW - 96)
-      doc.text(stagingLines, 48, 92)
+      doc.text(stagingLines, 48, y)
+      y += stagingLines.length * 13 + 6
     }
 
-    // Scoring breakdown table
-    autoTable(doc, {
-      startY: p.staging ? 116 : 96,
-      head: [['Category', 'Weight', 'Score (1–10)', 'Weighted']],
-      body: categories.map((c) => {
-        const v = Number(p.scores?.[c.id]) || 0
-        return [c.label, String(c.weight), String(v), String(v * (Number(c.weight) || 0))]
-      }),
-      foot: [['Total', '', '', `${totalScore(p, categories)} / ${max}`]],
-      styles: { fontSize: 9, cellPadding: 4 },
-      headStyles: { fillColor: ACCENT, textColor: 255 },
-      footStyles: { fillColor: [226, 232, 240], textColor: 30, fontStyle: 'bold' },
-      margin: { left: 48, right: 48 },
-    })
+    // Score callout
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(14)
+    doc.setTextColor(...PRIMARY)
+    doc.text(`Score: ${getScore(p)} / ${max}`, 48, y)
+    y += 28
 
     // Research summary
-    let y = doc.lastAutoTable.finalY + 22
     if (p.research) {
       const r = p.research
       doc.setFont('helvetica', 'bold')

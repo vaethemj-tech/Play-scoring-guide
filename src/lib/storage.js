@@ -1,4 +1,4 @@
-import { DEFAULT_SETTINGS, DEFAULT_CATEGORIES } from '../constants.js'
+import { DEFAULT_SETTINGS } from '../constants.js'
 
 const PLAYS_KEY = 'psg_plays'
 const SETTINGS_KEY = 'psg_settings'
@@ -27,10 +27,7 @@ export function loadSettings() {
     return {
       ...DEFAULT_SETTINGS,
       ...parsed,
-      categories:
-        Array.isArray(parsed.categories) && parsed.categories.length
-          ? parsed.categories
-          : DEFAULT_CATEGORIES,
+      maxScore: Number(parsed.maxScore) || DEFAULT_SETTINGS.maxScore,
     }
   } catch {
     return { ...DEFAULT_SETTINGS }
