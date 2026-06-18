@@ -1,0 +1,51 @@
+import { DEFAULT_SETTINGS, DEFAULT_CATEGORIES } from '../constants.js'
+
+const PLAYS_KEY = 'psg_plays'
+const SETTINGS_KEY = 'psg_settings'
+
+export function loadPlays() {
+  try {
+    const raw = localStorage.getItem(PLAYS_KEY)
+    if (!raw) return []
+    const parsed = JSON.parse(raw)
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
+}
+
+export function savePlays(plays) {
+  localStorage.setItem(PLAYS_KEY, JSON.stringify(plays))
+}
+
+export function loadSettings() {
+  try {
+    const raw = localStorage.getItem(SETTINGS_KEY)
+    if (!raw) return { ...DEFAULT_SETTINGS }
+    const parsed = JSON.parse(raw)
+    // Merge so new default fields appear for users with older saved settings.
+    return {
+      ...DEFAULT_SETTINGS,
+      ...parsed,
+      categories:
+        Array.isArray(parsed.categories) && parsed.categories.length
+          ? parsed.categories
+          : DEFAULT_CATEGORIES,
+    }
+  } catch {
+    return { ...DEFAULT_SETTINGS }
+  }
+}
+
+export function saveSettings(settings) {
+  localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings))
+}
+
+export function clearAll() {
+  localStorage.removeItem(PLAYS_KEY)
+  localStorage.removeItem(SETTINGS_KEY)
+}
+
+export function uid() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 8)
+}
