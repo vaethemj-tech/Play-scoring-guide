@@ -101,10 +101,6 @@ function parseJsonCandidate(text) {
   }
 }
 
-function textBlocks(content) {
-  return (content || []).filter((b) => b.type === 'text').map((b) => b.text)
-}
-
 // Looks like a tool-version / unsupported-tool error that warrants retrying
 // with the stable web-search tool version.
 function isToolVersionError(err) {
@@ -113,29 +109,112 @@ function isToolVersionError(err) {
   )
 }
 
-// Runs the research conversation with a given web-search tool, resuming through
-// any `pause_turn` pauses the server-side search loop produces.
-async function runConversation(apiKey, prompt, tool, signal) {
-  let messages = [{ role: 'user', content: prompt }]
-  let response
-  for (let i = 0; i < 6; i++) {
-    response = await callAnthropic(
-      apiKey,
-      {
-        model: RESEARCH_MODEL,
-        max_tokens: 6000,
-        tools: [tool],
-        messages,
+// Streams a Messages API request, accumulating the text content and the final
+// stop_reason. Streaming keeps the connection alive during slow web-search work
+// (a plain request stays silent and can hang for minutes). Aborts if no data
+// arrives for `inactivityMs` — a genuine stall, distinct from steady progress.
+async function streamMessage(apiKey, body, signal, inactivityMs = 75000) {
+  let res
+  try {
+    res = await fetch(API_URL, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
       },
+      body: JSON.stringify({ ...body, stream: true }),
       signal,
+    })
+  } catch (err) {
+    if (err?.name === 'AbortError') throw err
+    throw new Error(
+      `Could not reach the Anthropic API (${err.message}). Check your connection, VPN, or ad-blocker.`,
     )
-    if (response.stop_reason === 'pause_turn') {
-      messages = [...messages, { role: 'assistant', content: response.content }]
-      continue
-    }
-    break
   }
-  return response
+
+  if (!res.ok || !res.body) {
+    let detail = ''
+    try {
+      const e = await res.json()
+      detail = e?.error?.message || JSON.stringify(e)
+    } catch {
+      try {
+        detail = await res.text()
+      } catch {
+        detail = ''
+      }
+    }
+    throw new Error(`Anthropic API error (${res.status}): ${detail}`)
+  }
+
+  const reader = res.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+  let text = ''
+  let stopReason = null
+  let streamError = null
+
+  // Race each read against an inactivity timeout so a stalled stream fails fast.
+  const readChunk = () =>
+    Promise.race([
+      reader.read(),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('__inactivity__')), inactivityMs),
+      ),
+    ])
+
+  try {
+    for (;;) {
+      let chunk
+      try {
+        chunk = await readChunk()
+      } catch (e) {
+        if (e?.message === '__inactivity__') {
+          throw new Error(
+            `No response from web search for ${Math.round(inactivityMs / 1000)}s — the request stalled. Please try again.`,
+          )
+        }
+        throw e
+      }
+      if (chunk.done) break
+      buffer += decoder.decode(chunk.value, { stream: true })
+
+      let sep
+      while ((sep = buffer.indexOf('\n\n')) !== -1) {
+        const eventChunk = buffer.slice(0, sep)
+        buffer = buffer.slice(sep + 2)
+        for (const line of eventChunk.split('\n')) {
+          if (!line.startsWith('data:')) continue
+          const payload = line.slice(5).trim()
+          if (!payload || payload === '[DONE]') continue
+          let evt
+          try {
+            evt = JSON.parse(payload)
+          } catch {
+            continue
+          }
+          if (evt.type === 'content_block_delta' && evt.delta?.type === 'text_delta') {
+            text += evt.delta.text
+          } else if (evt.type === 'message_delta' && evt.delta?.stop_reason) {
+            stopReason = evt.delta.stop_reason
+          } else if (evt.type === 'error') {
+            streamError = evt.error?.message || 'stream error'
+          }
+        }
+      }
+    }
+  } finally {
+    try {
+      reader.cancel()
+    } catch {
+      /* ignore */
+    }
+  }
+
+  if (streamError) throw new Error(`Anthropic API error: ${streamError}`)
+  return { text: text.trim(), stop_reason: stopReason }
 }
 
 // Runs AI-powered market research for a single play. Returns the parsed
@@ -148,57 +227,58 @@ export async function runResearch(play, settings) {
   }
 
   const prompt = buildPrompt(play, settings)
+  const body = (tool) => ({
+    model: RESEARCH_MODEL,
+    max_tokens: 6000,
+    tools: [tool],
+    messages: [{ role: 'user', content: prompt }],
+  })
 
-  // Hard overall deadline so a stalled request can never spin forever.
+  // Overall ceiling so nothing runs forever; the per-read inactivity timeout in
+  // streamMessage catches genuine stalls much sooner while letting a steadily
+  // progressing search run to completion.
   const controller = new AbortController()
-  const DEADLINE_MS = 150000 // 2.5 minutes
+  const DEADLINE_MS = 240000 // 4 minutes
   const timer = setTimeout(() => controller.abort(), DEADLINE_MS)
 
-  let response
+  let result
   try {
     // Try the newer web-search tool first; if the account rejects that tool
     // version, retry once with the stable version.
     try {
-      response = await runConversation(apiKey, prompt, WEB_SEARCH_TOOLS[0], controller.signal)
+      result = await streamMessage(apiKey, body(WEB_SEARCH_TOOLS[0]), controller.signal)
     } catch (err) {
       if (controller.signal.aborted || err?.name === 'AbortError') throw err
       if (isToolVersionError(err)) {
-        response = await runConversation(apiKey, prompt, WEB_SEARCH_TOOLS[1], controller.signal)
+        result = await streamMessage(apiKey, body(WEB_SEARCH_TOOLS[1]), controller.signal)
       } else {
         throw err
       }
     }
   } catch (err) {
     if (controller.signal.aborted || err?.name === 'AbortError') {
-      throw new Error(
-        'Research timed out after 2.5 minutes. Web search may be slow or not enabled for your API key — try again, or verify your plan/billing in the Anthropic Console.',
-      )
+      throw new Error('Research timed out after 4 minutes. Please try again.')
     }
     throw err
   } finally {
     clearTimeout(timer)
   }
 
-  if (response.stop_reason === 'refusal') {
+  if (result.stop_reason === 'refusal') {
     throw new Error('The model declined to research this play.')
   }
 
-  // The final answer is normally the last text block; fall back to the joined
-  // text if needed.
-  const blocks = textBlocks(response.content)
-  const joined = blocks.join('\n').trim()
-  const data =
-    parseJsonCandidate(blocks[blocks.length - 1]) || parseJsonCandidate(joined)
+  const data = parseJsonCandidate(result.text)
 
   if (!data) {
-    if (response.stop_reason === 'max_tokens') {
+    if (result.stop_reason === 'max_tokens') {
       throw new Error(
         'The research response was cut off before it finished (length limit). Please try again.',
       )
     }
-    if (!joined) {
+    if (!result.text) {
       throw new Error(
-        'The model returned no readable text. This usually means web search is not enabled for your API key — check your Anthropic Console plan/billing.',
+        'The model returned no readable text. If this persists, confirm web search is enabled for your account in the Anthropic Console.',
       )
     }
     // Graceful fallback: keep the raw text so the research isn't lost.
@@ -207,7 +287,7 @@ export async function runResearch(play, settings) {
       productionHistory: '',
       audienceReception: '',
       complexity: '',
-      summary: joined,
+      summary: result.text,
       sources: [],
     }
   }

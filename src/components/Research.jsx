@@ -90,9 +90,9 @@ export default function Research({ plays, settings, onResearched }) {
       </div>
 
       <p className="mb-4 text-sm text-slate-500">
-        Research uses live web search and typically takes 20–90 seconds per play. If a run is still
-        going after about 2½ minutes it will stop with an error — refresh the page to cancel a stuck
-        run.
+        Research uses live web search and typically takes 20–90 seconds per play. The counter shows
+        it's actively working; a stalled run stops on its own with an error. Refresh the page to
+        cancel a run early.
       </p>
 
       {!hasKey && (
