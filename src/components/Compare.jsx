@@ -13,10 +13,22 @@ function castText(p) {
   return '—'
 }
 
+// Condenses a research paragraph to a short, scannable line: the first
+// sentence when it's brief enough, otherwise a clipped excerpt.
+function condense(text, maxLen = 160) {
+  if (!text) return ''
+  const trimmed = text.trim()
+  const firstSentence = trimmed.match(/^.*?[.!?](\s|$)/)?.[0]?.trim()
+  let out = firstSentence && firstSentence.length <= maxLen + 40 ? firstSentence : trimmed
+  if (out.length > maxLen) out = out.slice(0, maxLen).replace(/\s+\S*$/, '') + '…'
+  return out
+}
+
 export default function Compare({ plays, settings }) {
   const toast = useToast()
   const [selectedIds, setSelectedIds] = useState([])
   const [ai, setAi] = useState({ status: 'idle', text: '' })
+  const [condensed, setCondensed] = useState(true)
 
   const max = maxScore(settings)
   const hasKey = Boolean(settings.apiKey?.trim())
@@ -139,6 +151,15 @@ export default function Compare({ plays, settings }) {
           </div>
 
           {/* Side-by-side table */}
+          <div className="mb-2 flex items-center justify-between">
+            <h3 className="text-base font-semibold text-slate-800">Side-by-side</h3>
+            <button
+              className="text-sm font-medium text-accent hover:text-primary"
+              onClick={() => setCondensed((c) => !c)}
+            >
+              {condensed ? 'Show full research' : 'Show condensed research'}
+            </button>
+          </div>
           <div className="overflow-x-auto rounded-xl border border-slate-200">
             <table className="min-w-full border-collapse text-sm">
               <thead>
@@ -186,7 +207,11 @@ export default function Compare({ plays, settings }) {
                     {selected.map((p) => (
                       <Cell key={p.id} muted>
                         {p.research?.[key] ? (
-                          <span className="whitespace-pre-line text-slate-700">{p.research[key]}</span>
+                          <span
+                            className={condensed ? 'text-slate-700' : 'whitespace-pre-line text-slate-700'}
+                          >
+                            {condensed ? condense(p.research[key]) : p.research[key]}
+                          </span>
                         ) : p.research ? (
                           '—'
                         ) : (
