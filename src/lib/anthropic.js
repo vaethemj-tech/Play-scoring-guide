@@ -87,8 +87,10 @@ Then score the play's fit for the venue above on a 1–10 scale per category (10
 - audienceEngagement: suits an intimate, immersive black-box-style space
 - demographicAppeal: resonates with this location's community audience
 - stagingFit: works within a flexible/minimal set, small cast, limited wing/fly space
-- affordability: rights cost and production budget are realistic for a small venue
+- affordability: driven PRIMARILY by the actual licensing/royalty price you found (the same figure you put in rightsCost), plus production budget. Guide: clearly low/nominal rights (roughly under ~$100 per performance, or a small flat package) = 8–10; moderate (~$100–175 per performance) = 5–7; high or premium (large musicals, heavy royalties, roughly over ~$200 per performance) = 1–4. If no price is listed, estimate from the publisher and type of show, lean conservative, and do NOT default to a high score. This score MUST be consistent with rightsCost — an expensive show cannot score high on affordability.
 - localDraw: likely to sell tickets in this local market
+
+Keep the fit scores internally consistent with the research (affordability with rightsCost, stagingFit with production complexity).
 
 Return ONLY a JSON object (no markdown, no code fences, no commentary before or after) with exactly these keys:
 {

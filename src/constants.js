@@ -32,14 +32,14 @@ export const DEFAULT_SETTINGS = {
 }
 
 // Visible build tag so it's unambiguous which deployed version is loaded.
-export const APP_VERSION = '10'
+export const APP_VERSION = '11'
 
 // AI venue-fit scoring categories (each rated 1–10 for the user's venue).
 export const FIT_CATEGORIES = [
   { id: 'audienceEngagement', label: 'Audience Engagement' },
   { id: 'demographicAppeal', label: 'Local Demographic Appeal' },
   { id: 'stagingFit', label: 'Black Box Staging Fit' },
-  { id: 'affordability', label: 'Production Affordability' },
+  { id: 'affordability', label: 'Affordability (rights + budget)' },
   { id: 'localDraw', label: 'Local Box-Office Draw' },
 ]
 export const FIT_MAX = FIT_CATEGORIES.length * 10
