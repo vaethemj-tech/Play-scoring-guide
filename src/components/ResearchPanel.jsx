@@ -1,4 +1,5 @@
 import { ratingTone, RATING_CLASSES } from '../lib/scoring.js'
+import { FIT_CATEGORIES, FIT_MAX } from '../constants.js'
 
 function Chip({ value, kind }) {
   const tone = ratingTone(value, kind)
@@ -53,6 +54,28 @@ export default function ResearchPanel({ research, researchedAt }) {
             Appeal: <Chip value={research.audienceAppealRating} kind="appeal" />
           </span>
         </div>
+        {research.fit && (
+          <div className="mt-3 border-t border-slate-100 pt-2">
+            <div className="flex items-baseline justify-between">
+              <span className="text-xs font-medium uppercase tracking-wide text-slate-400">
+                Venue fit
+              </span>
+              <span className="text-sm font-semibold text-slate-800">
+                {FIT_CATEGORIES.reduce((s, c) => s + (Number(research.fit[c.id]) || 0), 0)} / {FIT_MAX}
+              </span>
+            </div>
+            <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-500">
+              {FIT_CATEGORIES.map((c) => (
+                <span key={c.id}>
+                  {c.label}: <span className="font-medium text-slate-700">{research.fit[c.id] || 0}</span>
+                </span>
+              ))}
+            </div>
+            {research.fit.notes && (
+              <p className="mt-1 text-xs italic text-slate-500">{research.fit.notes}</p>
+            )}
+          </div>
+        )}
       </div>
 
       {SECTIONS.map(([key, label]) =>

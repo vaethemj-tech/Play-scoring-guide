@@ -1,7 +1,7 @@
 // Scoring helpers. Each play stores a single received total score (entered by
 // the user, out of a configurable maximum — default 80). Badge color is keyed
 // to the score as a percentage of the maximum.
-import { DEFAULT_MAX_SCORE } from '../constants.js'
+import { DEFAULT_MAX_SCORE, FIT_CATEGORIES, FIT_MAX } from '../constants.js'
 
 // Returns a play's score. Falls back to summing legacy per-category scores so
 // plays entered under the old grading model keep their value.
@@ -81,3 +81,49 @@ export function averageOfAll(plays) {
   const sum = plays.reduce((s, p) => s + getScore(p), 0)
   return sum / plays.length
 }
+
+// ---- AI venue-fit + combined scoring ----
+
+export function hasFit(play) {
+  return Boolean(play?.research?.fit)
+}
+
+// Sum of the venue-fit category scores (0–FIT_MAX), or null if not scored.
+export function fitTotal(play) {
+  const f = play?.research?.fit
+  if (!f) return null
+  return FIT_CATEGORIES.reduce((s, c) => s + (Number(f[c.id]) || 0), 0)
+}
+
+// Blended rank on a 0–100 scale: the user's own score and the venue-fit score,
+// each normalized to a percentage, combined per the Settings blend weight. When
+// a play has no fit score yet, the user's score percentage is used alone.
+export function combinedScore(play, settings) {
+  const max = maxScore(settings)
+  const myPct = max ? (getScore(play) / max) * 100 : 0
+  const ft = fitTotal(play)
+  if (ft == null) return myPct
+  const blend = Math.min(100, Math.max(0, Number(settings?.scoreBlend ?? 50)))
+  const fitPct = (ft / FIT_MAX) * 100
+  return myPct * (blend / 100) + fitPct * ((100 - blend) / 100)
+}
+
+// Ranks plays by a chosen metric: 'my' | 'fit' | 'combined'.
+export function sortByMetric(plays, settings, metric = 'combined', dir = 'desc') {
+  const factor = dir === 'asc' ? 1 : -1
+  const value = (p) => {
+    if (metric === 'fit') return fitTotal(p) ?? -1
+    if (metric === 'my') return getScore(p)
+    return combinedScore(p, settings)
+  }
+  return [...plays].sort((a, b) => (value(a) - value(b)) * factor)
+}
+
+// Tier for the combined (0–100) score, for badge coloring.
+export function combinedTier(value) {
+  if (value >= 70) return 'high'
+  if (value >= 40) return 'mid'
+  return 'low'
+}
+
+// Maps a research rating to a tone, accounting for which direction is "good"

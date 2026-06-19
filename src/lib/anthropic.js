@@ -1,4 +1,4 @@
-import { RESEARCH_MODEL, WEB_SEARCH_TOOLS } from '../constants.js'
+import { RESEARCH_MODEL, WEB_SEARCH_TOOLS, FIT_CATEGORIES } from '../constants.js'
 import { getScore, maxScore } from './scoring.js'
 
 const API_URL = 'https://api.anthropic.com/v1/messages'
@@ -60,7 +60,7 @@ function buildPrompt(play, settings) {
     ? `the community/regional theater market relevant to "${settings.theaterName}"`
     : 'community and regional theater markets'
 
-  return `You are a market research assistant for a community theater board. Use web search to research the play below, then return a single structured report.
+  return `You are a market research assistant and programming advisor for a theater. Use web search to research the play below, then return a single structured report AND a venue-fit score.
 
 Be efficient: perform at most 3 web searches total, then stop searching and write the report. Keep each field to 2–4 sentences.
 
@@ -69,12 +69,26 @@ PLAY
 - Playwright: ${play.playwright || 'unknown'}
 - Genre: ${play.genre || 'unknown'}
 - Year written: ${play.yearWritten || 'unknown'}
+- Cast size: ${play.castMin || '?'}–${play.castMax || '?'}
+- Runtime: ${play.runtime ? play.runtime + ' min' : 'unknown'}
+
+VENUE (score how well this play fits THIS specific venue and audience):
+- Type: ${settings.venueType || 'community theater'}
+- Location: ${settings.venueLocation || 'unknown'}
+- Audience & space notes: ${settings.audienceNotes || 'n/a'}
 
 Research and report on, with reference to ${market}:
 1. Current licensing/royalty costs from major publishers (Samuel French / Concord Theatricals, Dramatists Play Service, Music Theatre International, Playscripts). Include amateur/community per-performance or package costs where available.
 2. Recent production history at comparable community or regional theaters.
 3. Audience reception notes and reviews from similar-sized markets.
 4. Known production complexity or budget considerations (set, cast, technical, music).
+
+Then score the play's fit for the venue above on a 1–10 scale per category (10 = excellent fit), grounded in the research and the venue/audience notes:
+- audienceEngagement: suits an intimate, immersive black-box-style space
+- demographicAppeal: resonates with this location's community audience
+- stagingFit: works within a flexible/minimal set, small cast, limited wing/fly space
+- affordability: rights cost and production budget are realistic for a small venue
+- localDraw: likely to sell tickets in this local market
 
 Return ONLY a JSON object (no markdown, no code fences, no commentary before or after) with exactly these keys:
 {
@@ -88,10 +102,18 @@ Return ONLY a JSON object (no markdown, no code fences, no commentary before or 
   "rightsAvailability": "your best judgment of how easy the rights are to obtain — exactly one of: Easy, Moderate, Hard, Unknown",
   "complexityRating": "overall production complexity — exactly one of: Low, Medium, High, Unknown",
   "audienceAppealRating": "likely audience appeal for a community theater — exactly one of: High, Medium, Low, Unknown",
+  "fit": {
+    "audienceEngagement": 1-10,
+    "demographicAppeal": 1-10,
+    "stagingFit": 1-10,
+    "affordability": 1-10,
+    "localDraw": 1-10,
+    "notes": "one sentence on overall fit for this venue and audience"
+  },
   "sources": [{"title": "...", "url": "..."}]
 }
 
-If a fact cannot be found, say so plainly (use 'Not listed' for rightsCost). Do not invent prices.`
+If a fact cannot be found, say so plainly (use 'Not listed' for rightsCost). Do not invent prices. Always provide the fit scores using your best judgment.`
 }
 
 // Attempts to parse a JSON object out of a text candidate. Strips Markdown code
@@ -122,6 +144,25 @@ const EMPTY_RESEARCH_EXTRAS = {
   rightsAvailability: 'Unknown',
   complexityRating: 'Unknown',
   audienceAppealRating: 'Unknown',
+  fit: null,
+}
+
+// Normalizes the venue-fit object: each category clamped to an integer 1–10.
+// Returns null if no usable scores were provided.
+function normFit(fit) {
+  if (!fit || typeof fit !== 'object') return null
+  const out = { notes: typeof fit.notes === 'string' ? fit.notes : '' }
+  let any = false
+  for (const c of FIT_CATEGORIES) {
+    const v = Number(fit[c.id])
+    if (Number.isFinite(v)) {
+      out[c.id] = Math.min(10, Math.max(1, Math.round(v)))
+      any = true
+    } else {
+      out[c.id] = 0
+    }
+  }
+  return any ? out : null
 }
 
 // Looks like a tool-version / unsupported-tool error that warrants retrying
@@ -328,6 +369,7 @@ export async function runResearch(play, settings) {
     rightsAvailability: normRating(data.rightsAvailability, ['Easy', 'Moderate', 'Hard']),
     complexityRating: normRating(data.complexityRating, ['Low', 'Medium', 'High']),
     audienceAppealRating: normRating(data.audienceAppealRating, ['High', 'Medium', 'Low']),
+    fit: normFit(data.fit),
   }
 }
 
@@ -336,6 +378,14 @@ function castText(play) {
   if (play.castMin) return `${play.castMin}+`
   if (play.castMax) return `up to ${play.castMax}`
   return 'unknown'
+}
+
+function fitLine(play) {
+  const f = play?.research?.fit
+  if (!f) return 'Venue-fit score: not yet scored'
+  const total = FIT_CATEGORIES.reduce((s, c) => s + (Number(f[c.id]) || 0), 0)
+  const parts = FIT_CATEGORIES.map((c) => `${c.label} ${f[c.id] || 0}/10`).join(', ')
+  return `Venue-fit score: ${total}/${FIT_CATEGORIES.length * 10} (${parts})`
 }
 
 function buildComparePrompt(plays, settings) {
@@ -355,18 +405,21 @@ function buildComparePrompt(plays, settings) {
             .join('\n')
         : 'No market research has been run for this play.'
       return `PLAY ${i + 1}: ${p.title || '(untitled)'}${p.playwright ? ' by ' + p.playwright : ''}
-Score: ${getScore(p)} / ${max}
+Board score (subjective): ${getScore(p)} / ${max}
+${fitLine(p)}
 Genre: ${p.genre || 'unknown'} | Cast: ${castText(p)} | Runtime: ${p.runtime ? p.runtime + ' min' : 'unknown'}
 Research:
 ${research}`
     })
     .join('\n\n---\n\n')
 
-  return `You are advising the board of ${settings.theaterName || 'a community theater'} on which play(s) to program. Compare and contrast the plays below using BOTH their evaluation scores and their market research.
+  return `You are advising the board of ${settings.theaterName || 'a community theater'} on which play(s) to program for their venue: a ${settings.venueType || 'community theater'} in ${settings.venueLocation || 'their area'}. Audience & space: ${settings.audienceNotes || 'n/a'}.
 
-Cover the key trade-offs: artistic value, audience appeal, licensing cost and availability, production complexity and budget, and box-office potential. Note where the score and the research agree or disagree (e.g. a high score but expensive rights). Then give a clear recommendation that ranks the plays for the season, with a one-sentence rationale for the top choice.
+Compare and contrast the plays below using ALL of: the board's subjective score, the venue-fit score (how well each suits this specific space and audience), and the market research.
 
-Be concise and board-ready. Use short paragraphs or bullet points. Do not invent facts beyond the scores and research provided; if research is missing for a play, say so.
+Cover the key trade-offs: artistic value, audience/demographic appeal, licensing cost and availability, staging fit for the venue, production budget, and local box-office potential. Note where the signals agree or disagree (e.g. a high board score but weak venue fit, or great fit but expensive rights). Then give a clear recommendation that ranks the plays for the season, with a one-sentence rationale for the top choice.
+
+Be concise and board-ready. Use short paragraphs or bullet points. Do not invent facts beyond what's provided; if research is missing for a play, say so.
 
 ${sections}`
 }

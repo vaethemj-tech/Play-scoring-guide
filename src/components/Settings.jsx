@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { DEFAULT_MAX_SCORE } from '../constants.js'
+import { DEFAULT_MAX_SCORE, FIT_CATEGORIES } from '../constants.js'
 import { testApiKey } from '../lib/anthropic.js'
 import { useToast } from './Toast.jsx'
 
@@ -86,6 +86,69 @@ export default function Settings({ settings, onSave, onResetAll }) {
           >
             Reset to {DEFAULT_MAX_SCORE}
           </button>
+        </div>
+      </div>
+
+      <div className="card p-5">
+        <h3 className="mb-2 text-base font-semibold text-slate-800">Venue Profile</h3>
+        <p className="mb-4 text-sm text-slate-500">
+          Used to compute each play's <strong>Venue Fit Score</strong> during research — how well it
+          suits your specific space and audience.
+        </p>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div>
+            <label className="field-label">Venue type</label>
+            <input
+              className="field-input"
+              value={draft.venueType}
+              onChange={(e) => set('venueType', e.target.value)}
+              placeholder="e.g. Black box theatre"
+            />
+          </div>
+          <div>
+            <label className="field-label">Location</label>
+            <input
+              className="field-input"
+              value={draft.venueLocation}
+              onChange={(e) => set('venueLocation', e.target.value)}
+              placeholder="e.g. Lindenhurst, Long Island, NY"
+            />
+          </div>
+          <div className="sm:col-span-2">
+            <label className="field-label">Audience &amp; space notes</label>
+            <textarea
+              className="field-input min-h-[90px]"
+              value={draft.audienceNotes}
+              onChange={(e) => set('audienceNotes', e.target.value)}
+              placeholder="Seats, demographics, budget, staging constraints…"
+            />
+          </div>
+        </div>
+        <p className="mt-3 text-xs text-slate-400">
+          Fit is scored 1–10 in five categories: {FIT_CATEGORIES.map((c) => c.label).join(', ')}.
+        </p>
+      </div>
+
+      <div className="card p-5">
+        <h3 className="mb-2 text-base font-semibold text-slate-800">Combined Ranking</h3>
+        <p className="mb-4 text-sm text-slate-500">
+          Plays are ranked by a blend of <strong>your score</strong> and the{' '}
+          <strong>venue-fit score</strong>. Choose how much each counts.
+        </p>
+        <div className="flex items-center gap-4">
+          <span className="w-28 text-sm font-medium text-slate-600">Your score {draft.scoreBlend}%</span>
+          <input
+            type="range"
+            min="0"
+            max="100"
+            step="5"
+            value={draft.scoreBlend}
+            onChange={(e) => set('scoreBlend', Number(e.target.value))}
+            className="flex-1 accent-accent"
+          />
+          <span className="w-28 text-right text-sm font-medium text-slate-600">
+            Venue fit {100 - draft.scoreBlend}%
+          </span>
         </div>
       </div>
 

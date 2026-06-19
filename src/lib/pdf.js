@@ -1,6 +1,7 @@
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
-import { getScore, maxScore } from './scoring.js'
+import { getScore, maxScore, fitTotal, combinedScore } from './scoring.js'
+import { FIT_CATEGORIES, FIT_MAX } from '../constants.js'
 
 const PRIMARY = [27, 79, 138] // #1B4F8A
 const ACCENT = [46, 117, 182] // #2E75B6
@@ -59,13 +60,13 @@ export function generateReport(rankedPlays, settings, options = {}) {
 
   autoTable(doc, {
     startY: 76,
-    head: [['#', 'Title', 'Playwright', 'Genre', 'Score', 'Rights cost']],
+    head: [['#', 'Title', 'Combined', 'Your score', 'Venue fit', 'Rights cost']],
     body: plays.map((p, i) => [
       String(i + 1),
       p.title || '(untitled)',
-      p.playwright || '—',
-      p.genre || '—',
+      `${Math.round(combinedScore(p, settings))} / 100`,
       `${getScore(p)} / ${max}`,
+      fitTotal(p) == null ? '—' : `${fitTotal(p)} / ${FIT_MAX}`,
       p.research ? p.research.rightsCost || 'Not listed' : '—',
     ]),
     styles: { fontSize: 10, cellPadding: 6 },
@@ -101,12 +102,41 @@ export function generateReport(rankedPlays, settings, options = {}) {
       y += stagingLines.length * 13 + 6
     }
 
-    // Score callout
+    // Score callout — combined rank with the two components
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(14)
     doc.setTextColor(...PRIMARY)
-    doc.text(`Score: ${getScore(p)} / ${max}`, 48, y)
-    y += 28
+    doc.text(`Combined rank: ${Math.round(combinedScore(p, settings))} / 100`, 48, y)
+    y += 18
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(10)
+    doc.setTextColor(...GRAY)
+    const fitStr = fitTotal(p) == null ? 'not scored' : `${fitTotal(p)} / ${FIT_MAX}`
+    doc.text(`Your score: ${getScore(p)} / ${max}     Venue fit: ${fitStr}`, 48, y)
+    y += 20
+
+    // Venue-fit breakdown
+    if (p.research?.fit) {
+      const f = p.research.fit
+      const line = FIT_CATEGORIES.map((c) => `${c.label}: ${f[c.id] || 0}/10`).join('   ')
+      doc.setFontSize(9)
+      doc.setTextColor(51, 65, 85)
+      doc.splitTextToSize(line, pageW - 96).forEach((ln) => {
+        y = ensureSpace(doc, y, 13, pageH)
+        doc.text(ln, 48, y)
+        y += 12
+      })
+      if (f.notes) {
+        y = ensureSpace(doc, y, 13, pageH)
+        doc.setFont('helvetica', 'italic')
+        doc.splitTextToSize(f.notes, pageW - 96).forEach((ln) => {
+          doc.text(ln, 48, y)
+          y += 12
+        })
+        doc.setFont('helvetica', 'normal')
+      }
+      y += 8
+    }
 
     // Rights & production quick facts
     if (p.research) {

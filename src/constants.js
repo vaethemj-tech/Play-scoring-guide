@@ -22,10 +22,27 @@ export const DEFAULT_SETTINGS = {
   seasonYear: String(new Date().getFullYear() + 1),
   apiKey: '',
   maxScore: DEFAULT_MAX_SCORE,
+  // Venue profile — grounds the AI venue-fit scoring.
+  venueType: 'Black box theatre',
+  venueLocation: 'Lindenhurst, Long Island, NY',
+  audienceNotes:
+    'Intimate flexible black box (~50–100 seats). Suburban Long Island community audience: multi-generational, families and older adults, value-conscious, drawn to recognizable titles, comedies, musicals, and relatable contemporary drama. Limited wing/fly space and a modest production budget.',
+  // How much the user's own score counts vs. the AI venue-fit score (0–100).
+  scoreBlend: 50,
 }
 
 // Visible build tag so it's unambiguous which deployed version is loaded.
-export const APP_VERSION = '9'
+export const APP_VERSION = '10'
+
+// AI venue-fit scoring categories (each rated 1–10 for the user's venue).
+export const FIT_CATEGORIES = [
+  { id: 'audienceEngagement', label: 'Audience Engagement' },
+  { id: 'demographicAppeal', label: 'Local Demographic Appeal' },
+  { id: 'stagingFit', label: 'Black Box Staging Fit' },
+  { id: 'affordability', label: 'Production Affordability' },
+  { id: 'localDraw', label: 'Local Box-Office Draw' },
+]
+export const FIT_MAX = FIT_CATEGORIES.length * 10
 
 // The model and web-search tools used for AI market research. The newer tool
 // version is tried first; if an account doesn't accept it, research falls back

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import EmptyState from './EmptyState.jsx'
 import { Download } from './Icons.jsx'
-import { sortPlays } from '../lib/scoring.js'
+import { sortByMetric } from '../lib/scoring.js'
 import { generateReport } from '../lib/pdf.js'
 import { useToast } from './Toast.jsx'
 
@@ -12,7 +12,7 @@ export default function Export({ plays, settings }) {
 
   function handleGenerate() {
     try {
-      const ranked = sortPlays(plays, 'score', 'desc')
+      const ranked = sortByMetric(plays, settings, 'combined', 'desc')
       generateReport(ranked, settings, { topN: limitTop ? Number(topN) : null })
       toast('Report generated', 'success')
     } catch (err) {

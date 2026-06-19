@@ -7,9 +7,14 @@ import {
   maxScore,
   scoreTier,
   sortPlays,
+  sortByMetric,
+  fitTotal,
+  combinedScore,
+  combinedTier,
   ratingTone,
   RATING_CLASSES,
 } from '../lib/scoring.js'
+import { FIT_MAX } from '../constants.js'
 import { runComparison } from '../lib/anthropic.js'
 import { useToast } from './Toast.jsx'
 
@@ -40,8 +45,16 @@ export default function Compare({ plays, settings }) {
   const max = maxScore(settings)
   const hasKey = Boolean(settings.apiKey?.trim())
   const ranked = sortPlays(plays, 'score', 'desc')
-  const selected = ranked.filter((p) => selectedIds.includes(p.id))
-  const topScore = selected.length ? Math.max(...selected.map((p) => getScore(p))) : null
+  // The comparison columns are ordered by the combined rank (best first).
+  const selected = sortByMetric(
+    plays.filter((p) => selectedIds.includes(p.id)),
+    settings,
+    'combined',
+    'desc',
+  )
+  const topCombined = selected.length
+    ? Math.max(...selected.map((p) => combinedScore(p, settings)))
+    : null
 
   function toggle(id) {
     setAi({ status: 'idle', text: '' })
@@ -186,13 +199,46 @@ export default function Compare({ plays, settings }) {
                 </tr>
               </thead>
               <tbody>
-                <Row label="Score">
+                <Row label="Combined rank">
+                  {selected.map((p) => {
+                    const c = combinedScore(p, settings)
+                    return (
+                      <Cell key={p.id} highlight={c === topCombined}>
+                        <ScoreBadge tier={combinedTier(c)}>{Math.round(c)}</ScoreBadge>
+                        <span className="ml-1 text-slate-400">/ 100</span>
+                      </Cell>
+                    )
+                  })}
+                </Row>
+                <Row label="Your score">
                   {selected.map((p) => (
-                    <Cell key={p.id} highlight={getScore(p) === topScore}>
+                    <Cell key={p.id}>
                       <ScoreBadge tier={scoreTier(p, settings)}>{getScore(p)}</ScoreBadge>
                       <span className="ml-1 text-slate-400">/ {max}</span>
                     </Cell>
                   ))}
+                </Row>
+                <Row label="Venue fit">
+                  {selected.map((p) => {
+                    const ft = fitTotal(p)
+                    return (
+                      <Cell key={p.id}>
+                        {ft == null ? (
+                          <span className="italic text-slate-400">Not scored</span>
+                        ) : (
+                          <>
+                            <span className="font-semibold text-slate-800">{ft}</span>
+                            <span className="text-slate-400"> / {FIT_MAX}</span>
+                            {p.research?.fit?.notes && (
+                              <span className="mt-1 block text-xs text-slate-500">
+                                {p.research.fit.notes}
+                              </span>
+                            )}
+                          </>
+                        )}
+                      </Cell>
+                    )
+                  })}
                 </Row>
                 <Row label="Genre">
                   {selected.map((p) => (
