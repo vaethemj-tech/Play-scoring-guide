@@ -29,10 +29,14 @@ export const DEFAULT_SETTINGS = {
     'Intimate flexible black box (~50–100 seats). Suburban Long Island community audience: multi-generational, families and older adults, value-conscious, drawn to recognizable titles, comedies, musicals, and relatable contemporary drama. Limited wing/fly space and a modest production budget.',
   // How much the user's own score counts vs. the AI venue-fit score (0–100).
   scoreBlend: 50,
+  // Optional team cloud sync (Supabase). Empty = local-only.
+  supabaseUrl: '',
+  supabaseKey: '',
+  boardCode: '',
 }
 
 // Visible build tag so it's unambiguous which deployed version is loaded.
-export const APP_VERSION = '11'
+export const APP_VERSION = '12'
 
 // AI venue-fit scoring categories (each rated 1–10 for the user's venue).
 export const FIT_CATEGORIES = [

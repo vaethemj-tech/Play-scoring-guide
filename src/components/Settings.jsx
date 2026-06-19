@@ -1,12 +1,40 @@
 import { useState } from 'react'
 import { DEFAULT_MAX_SCORE, FIT_CATEGORIES } from '../constants.js'
 import { testApiKey } from '../lib/anthropic.js'
+import { cloudLoad, cloudConfigured } from '../lib/cloud.js'
 import { useToast } from './Toast.jsx'
 
-export default function Settings({ settings, onSave, onResetAll }) {
+const SYNC_LABEL = {
+  off: 'Local only (not connected)',
+  connecting: 'Connecting…',
+  synced: 'Connected — synced with your team',
+  error: 'Connection error — check the fields below',
+}
+
+export default function Settings({ settings, onSave, onResetAll, syncStatus }) {
   const toast = useToast()
   const [draft, setDraft] = useState(() => structuredClone(settings))
   const [keyTest, setKeyTest] = useState({ status: 'idle', message: '' })
+  const [cloudTest, setCloudTest] = useState({ status: 'idle', message: '' })
+
+  async function handleTestCloud() {
+    setCloudTest({ status: 'testing', message: '' })
+    if (!cloudConfigured(draft)) {
+      setCloudTest({ status: 'fail', message: 'Fill in all three fields first.' })
+      return
+    }
+    try {
+      const row = await cloudLoad(draft)
+      setCloudTest({
+        status: 'ok',
+        message: row
+          ? 'Connected — found an existing board with this code.'
+          : 'Connected — no board with this code yet; saving will create it.',
+      })
+    } catch (err) {
+      setCloudTest({ status: 'fail', message: err.message })
+    }
+  }
 
   async function handleTestKey() {
     setKeyTest({ status: 'testing', message: '' })
@@ -150,6 +178,89 @@ export default function Settings({ settings, onSave, onResetAll }) {
             Venue fit {100 - draft.scoreBlend}%
           </span>
         </div>
+      </div>
+
+      <div className="card p-5">
+        <h3 className="mb-2 text-base font-semibold text-slate-800">Team Cloud Sync</h3>
+        <p className="mb-3 text-sm text-slate-500">
+          Optional. Connect a free Supabase database so your whole board shares one set of plays,
+          scores, and research. Everyone who enters the same three values below sees and edits the
+          same data. Leave blank to keep everything only on this device.
+        </p>
+        <div
+          className={`mb-4 rounded-md px-3 py-2 text-sm font-medium ${
+            syncStatus === 'synced'
+              ? 'bg-green-50 text-green-700'
+              : syncStatus === 'error'
+                ? 'bg-red-50 text-red-700'
+                : 'bg-slate-100 text-slate-600'
+          }`}
+        >
+          Status: {SYNC_LABEL[syncStatus] || SYNC_LABEL.off}
+        </div>
+        <div className="space-y-4">
+          <div>
+            <label className="field-label">Supabase Project URL</label>
+            <input
+              className="field-input font-mono"
+              value={draft.supabaseUrl}
+              onChange={(e) => {
+                set('supabaseUrl', e.target.value)
+                setCloudTest({ status: 'idle', message: '' })
+              }}
+              placeholder="https://xxxxxxxx.supabase.co"
+              autoComplete="off"
+            />
+          </div>
+          <div>
+            <label className="field-label">Supabase anon key</label>
+            <input
+              type="password"
+              className="field-input font-mono"
+              value={draft.supabaseKey}
+              onChange={(e) => {
+                set('supabaseKey', e.target.value)
+                setCloudTest({ status: 'idle', message: '' })
+              }}
+              placeholder="eyJ… (safe to share with your board)"
+              autoComplete="off"
+            />
+          </div>
+          <div>
+            <label className="field-label">Board code</label>
+            <input
+              className="field-input"
+              value={draft.boardCode}
+              onChange={(e) => {
+                set('boardCode', e.target.value)
+                setCloudTest({ status: 'idle', message: '' })
+              }}
+              placeholder="e.g. lindenhurst-2026 (everyone uses the same code)"
+              autoComplete="off"
+            />
+          </div>
+        </div>
+        <div className="mt-3 flex items-center gap-3">
+          <button
+            type="button"
+            className="btn-ghost"
+            onClick={handleTestCloud}
+            disabled={cloudTest.status === 'testing'}
+          >
+            {cloudTest.status === 'testing' ? 'Testing…' : 'Test connection'}
+          </button>
+          {cloudTest.status === 'ok' && (
+            <span className="text-sm font-medium text-green-700">✓ {cloudTest.message}</span>
+          )}
+          {cloudTest.status === 'fail' && (
+            <span className="text-sm font-medium text-red-700">✗ {cloudTest.message}</span>
+          )}
+        </div>
+        <p className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-800">
+          Heads up: when you <strong>Save</strong> with these filled in, this device joins that
+          board. If the board already has data, it loads here and replaces the plays currently on
+          this device. The very first person to use a new board code uploads their plays to it.
+        </p>
       </div>
 
       <div className="card p-5">
