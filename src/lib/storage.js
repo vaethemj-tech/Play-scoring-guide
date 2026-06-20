@@ -9,7 +9,13 @@ export function emptyMatrix() {
   SEASON_FACTORS.forEach((f) => {
     values[f.id] = { show1: '', show2: '', show3: '', wildcard: '' }
   })
-  return { shows: [null, null, null], wildcardLabel: '', values }
+  return {
+    shows: [null, null, null],
+    wildcardLabel: '',
+    reviewText: '',
+    recommendationText: '',
+    values,
+  }
 }
 
 // Ensures a matrix object has every factor row (forward-compatible).
@@ -31,7 +37,13 @@ export function normalizeMatrix(m) {
       }
     })
   }
-  return { shows, wildcardLabel: m.wildcardLabel || '', values }
+  return {
+    shows,
+    wildcardLabel: m.wildcardLabel || '',
+    reviewText: m.reviewText || '',
+    recommendationText: m.recommendationText || '',
+    values,
+  }
 }
 
 export function loadMatrix() {

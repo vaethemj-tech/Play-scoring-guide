@@ -261,6 +261,33 @@ function addMatrixPage(doc, matrix, shows) {
     alternateRowStyles: { fillColor: [241, 245, 249] },
     margin: { left: 36, right: 36 },
   })
+
+  // AI write-ups beneath the grid, if present.
+  const pageW = doc.internal.pageSize.getWidth()
+  const pageH = doc.internal.pageSize.getHeight()
+  let y = doc.lastAutoTable.finalY + 22
+  const blocks = [
+    ['Recommended Season (AI)', matrix.recommendationText],
+    ['Balance Review (AI)', matrix.reviewText],
+  ]
+  blocks.forEach(([label, text]) => {
+    if (!text) return
+    y = ensureSpace(doc, y, 44, pageH)
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(12)
+    doc.setTextColor(...PRIMARY)
+    doc.text(label, 36, y)
+    y += 16
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(10)
+    doc.setTextColor(51, 65, 85)
+    doc.splitTextToSize(text, pageW - 72).forEach((line) => {
+      y = ensureSpace(doc, y, 14, pageH)
+      doc.text(line, 36, y)
+      y += 13
+    })
+    y += 12
+  })
 }
 
 function sectionHeading(doc, text, y) {

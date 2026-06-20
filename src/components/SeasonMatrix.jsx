@@ -25,9 +25,9 @@ function Spinner() {
 export default function SeasonMatrix({ plays, matrix, setMatrix, settings }) {
   const toast = useToast()
   const [autoBusy, setAutoBusy] = useState(false)
-  const [review, setReview] = useState({ status: 'idle', text: '' })
+  const [reviewBusy, setReviewBusy] = useState(false)
   const [seedId, setSeedId] = useState('')
-  const [rec, setRec] = useState({ status: 'idle', text: '' })
+  const [recBusy, setRecBusy] = useState(false)
 
   const hasKey = Boolean(settings.apiKey?.trim())
   const ranked = sortByMetric(plays, settings, 'combined', 'desc')
@@ -68,15 +68,16 @@ export default function SeasonMatrix({ plays, matrix, setMatrix, settings }) {
       toast('Pick a show to build the season around.', 'error')
       return
     }
-    setRec({ status: 'busy', text: '' })
+    setRecBusy(true)
     try {
       const text = await runSeasonRecommendation(seed, plays, settings)
-      setRec({ status: 'done', text })
+      setMatrix((m) => ({ ...m, recommendationText: text }))
       toast('Recommendation ready', 'success')
     } catch (err) {
       console.error('[matrix] recommend failed', err)
-      setRec({ status: 'idle', text: '' })
       toast(err.message, 'error')
+    } finally {
+      setRecBusy(false)
     }
   }
 
@@ -109,15 +110,16 @@ export default function SeasonMatrix({ plays, matrix, setMatrix, settings }) {
   }
 
   async function reviewBalance() {
-    setReview({ status: 'busy', text: '' })
+    setReviewBusy(true)
     try {
       const text = await runBalanceReview(matrix, shows, settings)
-      setReview({ status: 'done', text })
+      setMatrix((m) => ({ ...m, reviewText: text }))
       toast('Balance review ready', 'success')
     } catch (err) {
       console.error('[matrix] review failed', err)
-      setReview({ status: 'idle', text: '' })
       toast(err.message, 'error')
+    } finally {
+      setReviewBusy(false)
     }
   }
 
@@ -268,8 +270,8 @@ export default function SeasonMatrix({ plays, matrix, setMatrix, settings }) {
                 </option>
               ))}
             </select>
-            <button className="btn-accent" onClick={recommend} disabled={!hasKey || rec.status === 'busy'}>
-              {rec.status === 'busy' ? (
+            <button className="btn-accent" onClick={recommend} disabled={!hasKey || recBusy}>
+              {recBusy ? (
                 <>
                   <Spinner /> Thinking…
                 </>
@@ -281,9 +283,9 @@ export default function SeasonMatrix({ plays, matrix, setMatrix, settings }) {
             </button>
           </div>
         </div>
-        {rec.status === 'done' && (
+        {matrix.recommendationText && (
           <div className="mt-4 whitespace-pre-line rounded-lg border border-slate-200 bg-white p-4 text-sm leading-relaxed text-slate-700">
-            {rec.text}
+            {matrix.recommendationText}
           </div>
         )}
       </div>
@@ -298,8 +300,8 @@ export default function SeasonMatrix({ plays, matrix, setMatrix, settings }) {
               Wildcard slot.
             </p>
           </div>
-          <button className="btn-primary" onClick={reviewBalance} disabled={!hasKey || review.status === 'busy'}>
-            {review.status === 'busy' ? (
+          <button className="btn-primary" onClick={reviewBalance} disabled={!hasKey || reviewBusy}>
+            {reviewBusy ? (
               <>
                 <Spinner /> Reviewing…
               </>
@@ -310,9 +312,9 @@ export default function SeasonMatrix({ plays, matrix, setMatrix, settings }) {
             )}
           </button>
         </div>
-        {review.status === 'done' && (
+        {matrix.reviewText && (
           <div className="mt-4 whitespace-pre-line rounded-lg border border-slate-200 bg-white p-4 text-sm leading-relaxed text-slate-700">
-            {review.text}
+            {matrix.reviewText}
           </div>
         )}
       </div>

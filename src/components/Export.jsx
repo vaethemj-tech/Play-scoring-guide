@@ -25,6 +25,8 @@ export default function Export({ plays, settings, matrix }) {
   const matrixShows = (matrix?.shows || []).map((id) => byId[id] || null)
   const matrixHasData =
     matrixShows.some(Boolean) ||
+    Boolean(matrix?.reviewText) ||
+    Boolean(matrix?.recommendationText) ||
     Object.values(matrix?.values || {}).some((row) =>
       Object.values(row || {}).some((val) => val),
     )
