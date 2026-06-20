@@ -12,14 +12,22 @@ const MODES = [
   { id: 'pick', label: 'Choose specific shows' },
 ]
 
-export default function Export({ plays, settings }) {
+export default function Export({ plays, settings, matrix }) {
   const toast = useToast()
   const [mode, setMode] = useState('all')
   const [topN, setTopN] = useState(10)
   const [selectedIds, setSelectedIds] = useState([])
+  const [includeMatrix, setIncludeMatrix] = useState(true)
 
   const ranked = sortByMetric(plays, settings, 'combined', 'desc')
   const byId = Object.fromEntries(plays.map((p) => [p.id, p]))
+
+  const matrixShows = (matrix?.shows || []).map((id) => byId[id] || null)
+  const matrixHasData =
+    matrixShows.some(Boolean) ||
+    Object.values(matrix?.values || {}).some((row) =>
+      Object.values(row || {}).some((val) => val),
+    )
 
   // The plays that will actually go into the PDF. For "pick", the report order
   // follows the user's arrangement (selectedIds order); otherwise ranked.
@@ -51,7 +59,11 @@ export default function Export({ plays, settings }) {
       return
     }
     try {
-      generateReport(chosen, settings, { topN: null })
+      generateReport(chosen, settings, {
+        topN: null,
+        matrix: includeMatrix && matrixHasData ? matrix : null,
+        matrixShows,
+      })
       toast(`Report generated (${chosen.length} play${chosen.length === 1 ? '' : 's'})`, 'success')
     } catch (err) {
       toast(`Could not generate report: ${err.message}`, 'error')
@@ -238,6 +250,20 @@ export default function Export({ plays, settings }) {
               })}
             </ul>
           </div>
+        )}
+
+        {matrixHasData && (
+          <label className="mt-5 flex items-center gap-3 rounded-lg border border-slate-200 p-4">
+            <input
+              type="checkbox"
+              className="h-4 w-4 accent-accent"
+              checked={includeMatrix}
+              onChange={(e) => setIncludeMatrix(e.target.checked)}
+            />
+            <span className="text-sm font-medium text-slate-700">
+              Include the Season Balance Matrix page
+            </span>
+          </label>
         )}
 
         <button className="btn-primary mt-6 w-full" onClick={handleGenerate}>

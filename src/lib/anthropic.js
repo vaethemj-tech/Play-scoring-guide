@@ -491,16 +491,15 @@ export async function runBalanceReview(matrix, shows, settings) {
   const apiKey = settings.apiKey?.trim()
   if (!apiKey) throw new Error('No Anthropic API key set. Add one in Settings for the AI review.')
 
-  const slots = ['show1', 'show2', 'show3']
+  const wildcardLabel = matrix.wildcardLabel?.trim() || 'Wildcard'
+  const slots = ['show1', 'show2', 'show3', 'wildcard']
+  const titleFor = (s, i) => (s === 'wildcard' ? wildcardLabel : shows[i]?.title || s)
   const lines = SEASON_FACTORS.map((f) => {
-    const vals = slots.map((s, i) => {
-      const title = shows[i]?.title || s
-      return `${title}: ${matrix.values?.[f.id]?.[s] || '—'}`
-    })
+    const vals = slots.map((s, i) => `${titleFor(s, i)}: ${matrix.values?.[f.id]?.[s] || '—'}`)
     return `${f.label} -> ${vals.join(' | ')}`
   }).join('\n')
 
-  const prompt = `You are a theater programming advisor for ${settings.theaterName || 'a community theater'} (${settings.venueType || 'venue'}${settings.venueLocation ? ', ' + settings.venueLocation : ''}). Review the balance of this three-show season. The fourth slot, "Wildcard", is intentionally left open.
+  const prompt = `You are a theater programming advisor for ${settings.theaterName || 'a community theater'} (${settings.venueType || 'venue'}${settings.venueLocation ? ', ' + settings.venueLocation : ''}). Review the balance of this season. The fourth slot ("${wildcardLabel}") is the flexible/open slot — if it already has values, factor them in; if it is blank, recommend what it should provide.
 
 SEASON MATRIX (factor -> each show's value):
 ${lines}
@@ -518,6 +517,51 @@ Assess the season's overall balance and variety across genre, tone, cast size, t
     .join('\n')
     .trim()
   if (!text) throw new Error('The model returned no review. Please try again.')
+  return text
+}
+
+// Given one "seed" show, recommends two more shows to build a balanced season
+// (the Wildcard stays open). Prefers the theater's own entered plays where they
+// fit, and may suggest well-known titles otherwise. Plain text call — fast.
+export async function runSeasonRecommendation(seed, otherPlays, settings) {
+  const apiKey = settings.apiKey?.trim()
+  if (!apiKey) {
+    throw new Error('No Anthropic API key set. Add one in Settings for recommendations.')
+  }
+  if (!seed) throw new Error('Pick a show to build the season around first.')
+
+  const candidates =
+    (otherPlays || [])
+      .filter((p) => p.id !== seed.id)
+      .map(
+        (p) =>
+          `- ${p.title || '(untitled)'}${p.playwright ? ' by ' + p.playwright : ''} (${p.genre || 'genre?'}, cast ${p.castMin || '?'}–${p.castMax || '?'})`,
+      )
+      .join('\n') || '(none entered yet)'
+
+  const prompt = `You are a theater programming advisor for ${settings.theaterName || 'a community theater'} (${settings.venueType || 'venue'}${settings.venueLocation ? ', ' + settings.venueLocation : ''}). Audience & space: ${settings.audienceNotes || 'n/a'}.
+
+The board has chosen this show for the season:
+${showFacts(seed)}
+
+Recommend TWO additional shows that, together with the chosen show, make a well-balanced three-show season — varied across genre, tone, cast size, technical/set demands, audience draw, artistic risk, and time period. A fourth "Wildcard" slot will stay open, so do NOT fill it.
+
+The theater's other already-entered candidate plays:
+${candidates}
+
+Prefer recommending from those candidates when one is a strong fit (name it exactly). If none fit a needed gap well, you may suggest a well-known title instead and say so. For each of the two recommendations, give the title and a one-sentence rationale tied to balancing the season. End with one sentence on what the still-open Wildcard could add. Be concise and board-ready.`
+
+  const res = await callAnthropic(apiKey, {
+    model: RESEARCH_MODEL,
+    max_tokens: 1200,
+    messages: [{ role: 'user', content: prompt }],
+  })
+  const text = (res.content || [])
+    .filter((b) => b.type === 'text')
+    .map((b) => b.text)
+    .join('\n')
+    .trim()
+  if (!text) throw new Error('The model returned no recommendation. Please try again.')
   return text
 }
 

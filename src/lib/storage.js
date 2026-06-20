@@ -7,9 +7,9 @@ const MATRIX_KEY = 'psg_matrix'
 export function emptyMatrix() {
   const values = {}
   SEASON_FACTORS.forEach((f) => {
-    values[f.id] = { show1: '', show2: '', show3: '' }
+    values[f.id] = { show1: '', show2: '', show3: '', wildcard: '' }
   })
-  return { shows: [null, null, null], values }
+  return { shows: [null, null, null], wildcardLabel: '', values }
 }
 
 // Ensures a matrix object has every factor row (forward-compatible).
@@ -26,11 +26,12 @@ export function normalizeMatrix(m) {
           show1: row.show1 || '',
           show2: row.show2 || '',
           show3: row.show3 || '',
+          wildcard: row.wildcard || '',
         }
       }
     })
   }
-  return { shows, values }
+  return { shows, wildcardLabel: m.wildcardLabel || '', values }
 }
 
 export function loadMatrix() {

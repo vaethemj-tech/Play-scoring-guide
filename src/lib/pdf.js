@@ -1,7 +1,7 @@
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import { getScore, maxScore, fitTotal, combinedScore } from './scoring.js'
-import { FIT_CATEGORIES, FIT_MAX } from '../constants.js'
+import { FIT_CATEGORIES, FIT_MAX, SEASON_FACTORS } from '../constants.js'
 
 const PRIMARY = [27, 79, 138] // #1B4F8A
 const ACCENT = [46, 117, 182] // #2E75B6
@@ -74,6 +74,11 @@ export function generateReport(rankedPlays, settings, options = {}) {
     alternateRowStyles: { fillColor: [241, 245, 249] },
     margin: { left: 48, right: 48 },
   })
+
+  // ---- Season Balance Matrix (optional) ----
+  if (options.matrix) {
+    addMatrixPage(doc, options.matrix, options.matrixShows || [])
+  }
 
   // ---- Per-play detail ----
   plays.forEach((p, i) => {
@@ -223,6 +228,39 @@ export function generateReport(rankedPlays, settings, options = {}) {
 
   const safeName = (settings.theaterName || 'theater').replace(/[^a-z0-9]+/gi, '-').toLowerCase()
   doc.save(`${safeName}-play-report-${settings.seasonYear || ''}.pdf`)
+}
+
+function addMatrixPage(doc, matrix, shows) {
+  doc.addPage()
+  sectionHeading(doc, 'Season Balance Matrix', 56)
+  const wildcardLabel = matrix.wildcardLabel?.trim() || 'Wildcard'
+  const head = [
+    [
+      'Factor',
+      shows[0]?.title || 'Show 1',
+      shows[1]?.title || 'Show 2',
+      shows[2]?.title || 'Show 3',
+      wildcardLabel,
+    ],
+  ]
+  const v = (fid, slot) => matrix.values?.[fid]?.[slot] || ''
+  const body = SEASON_FACTORS.map((f) => [
+    f.label,
+    v(f.id, 'show1'),
+    v(f.id, 'show2'),
+    v(f.id, 'show3'),
+    v(f.id, 'wildcard'),
+  ])
+  autoTable(doc, {
+    startY: 76,
+    head,
+    body,
+    styles: { fontSize: 8, cellPadding: 4, valign: 'top' },
+    headStyles: { fillColor: PRIMARY, textColor: 255 },
+    columnStyles: { 0: { fontStyle: 'bold', cellWidth: 120 } },
+    alternateRowStyles: { fillColor: [241, 245, 249] },
+    margin: { left: 36, right: 36 },
+  })
 }
 
 function sectionHeading(doc, text, y) {

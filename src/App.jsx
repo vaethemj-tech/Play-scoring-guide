@@ -313,7 +313,7 @@ export default function App() {
             syncStatus={syncStatus}
           />
         )}
-        {tab === 'export' && <Export plays={plays} settings={settings} />}
+        {tab === 'export' && <Export plays={plays} settings={settings} matrix={matrix} />}
       </main>
       <footer className="mx-auto max-w-6xl px-4 pb-8 pt-2 text-center text-xs text-slate-400">
         Play Scoring Guide · {SYNC_LABEL[syncStatus]} · Build {APP_VERSION}

@@ -3,7 +3,7 @@ import EmptyState from './EmptyState.jsx'
 import { Sparkles } from './Icons.jsx'
 import { SEASON_FACTORS } from '../constants.js'
 import { sortByMetric } from '../lib/scoring.js'
-import { runSeasonMatrix, runBalanceReview } from '../lib/anthropic.js'
+import { runSeasonMatrix, runBalanceReview, runSeasonRecommendation } from '../lib/anthropic.js'
 import { useToast } from './Toast.jsx'
 
 const SLOTS = ['show1', 'show2', 'show3']
@@ -26,6 +26,8 @@ export default function SeasonMatrix({ plays, matrix, setMatrix, settings }) {
   const toast = useToast()
   const [autoBusy, setAutoBusy] = useState(false)
   const [review, setReview] = useState({ status: 'idle', text: '' })
+  const [seedId, setSeedId] = useState('')
+  const [rec, setRec] = useState({ status: 'idle', text: '' })
 
   const hasKey = Boolean(settings.apiKey?.trim())
   const ranked = sortByMetric(plays, settings, 'combined', 'desc')
@@ -54,10 +56,28 @@ export default function SeasonMatrix({ plays, matrix, setMatrix, settings }) {
     setMatrix((m) => {
       const values = {}
       SEASON_FACTORS.forEach((f) => {
-        values[f.id] = { show1: '', show2: '', show3: '' }
+        values[f.id] = { show1: '', show2: '', show3: '', wildcard: '' }
       })
       return { ...m, values }
     })
+  }
+
+  async function recommend() {
+    const seed = plays.find((p) => p.id === (seedId || matrix.shows[0]))
+    if (!seed) {
+      toast('Pick a show to build the season around.', 'error')
+      return
+    }
+    setRec({ status: 'busy', text: '' })
+    try {
+      const text = await runSeasonRecommendation(seed, plays, settings)
+      setRec({ status: 'done', text })
+      toast('Recommendation ready', 'success')
+    } catch (err) {
+      console.error('[matrix] recommend failed', err)
+      setRec({ status: 'idle', text: '' })
+      toast(err.message, 'error')
+    }
   }
 
   async function autoFill() {
@@ -137,8 +157,8 @@ export default function SeasonMatrix({ plays, matrix, setMatrix, settings }) {
 
       <p className="mb-4 text-sm text-slate-500">
         Choose three shows, then auto-fill the grid from their data and research or type your own
-        values. The <strong>Wildcard</strong> column is intentionally left blank — the open slot the
-        AI review recommends how to fill.
+        values. The <strong>Wildcard</strong> is the open 4th slot — empty by default, but you can
+        rename its header and fill it in by hand. AI auto-fill and recommendations leave it for you.
       </p>
 
       {!hasKey && (
@@ -183,9 +203,14 @@ export default function SeasonMatrix({ plays, matrix, setMatrix, settings }) {
                   {shows[i]?.title && <div className="text-xs font-normal text-slate-400">{col.label}</div>}
                 </th>
               ))}
-              <th className="min-w-[10rem] border-l border-slate-200 bg-amber-50/40 px-3 py-3 text-left">
-                <div className="font-semibold text-slate-800">Wildcard</div>
-                <div className="text-xs font-normal text-slate-400">always open</div>
+              <th className="min-w-[11rem] border-l border-slate-200 bg-amber-50/40 px-3 py-3 text-left">
+                <input
+                  className="w-full bg-transparent font-semibold text-slate-800 placeholder:text-slate-400 focus:outline-none"
+                  value={matrix.wildcardLabel || ''}
+                  onChange={(e) => setMatrix((m) => ({ ...m, wildcardLabel: e.target.value }))}
+                  placeholder="Wildcard"
+                />
+                <div className="text-xs font-normal text-slate-400">open — fill by hand if you like</div>
               </th>
             </tr>
           </thead>
@@ -205,14 +230,62 @@ export default function SeasonMatrix({ plays, matrix, setMatrix, settings }) {
                     />
                   </td>
                 ))}
-                {/* Wildcard: always blank, not editable */}
-                <td className="border-l border-slate-100 bg-amber-50/30 px-3 py-2 text-center text-slate-300">
-                  —
+                {/* Wildcard: empty by default, but editable by hand */}
+                <td className="border-l border-slate-100 bg-amber-50/20 px-2 py-1.5">
+                  <input
+                    className="w-full rounded-md border border-transparent bg-transparent px-2 py-1 text-slate-800 hover:border-slate-200 focus:border-accent focus:bg-white focus:outline-none focus:ring-1 focus:ring-accent"
+                    value={matrix.values[f.id]?.wildcard || ''}
+                    onChange={(e) => setCell(f.id, 'wildcard', e.target.value)}
+                    placeholder="—"
+                  />
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
+      </div>
+
+      {/* Build a season from one show */}
+      <div className="card mt-6 p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 className="text-base font-semibold text-slate-800">Build a season from one show</h3>
+            <p className="text-sm text-slate-500">
+              Pick one show you know you want, and let AI recommend two more to balance the season.
+              The Wildcard stays open.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <select
+              className="field-input w-auto"
+              value={seedId || matrix.shows[0] || ''}
+              onChange={(e) => setSeedId(e.target.value)}
+            >
+              <option value="">Pick a show…</option>
+              {ranked.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.title || '(untitled)'}
+                </option>
+              ))}
+            </select>
+            <button className="btn-accent" onClick={recommend} disabled={!hasKey || rec.status === 'busy'}>
+              {rec.status === 'busy' ? (
+                <>
+                  <Spinner /> Thinking…
+                </>
+              ) : (
+                <>
+                  <Sparkles /> Recommend two more
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+        {rec.status === 'done' && (
+          <div className="mt-4 whitespace-pre-line rounded-lg border border-slate-200 bg-white p-4 text-sm leading-relaxed text-slate-700">
+            {rec.text}
+          </div>
+        )}
       </div>
 
       {/* AI balance review */}
