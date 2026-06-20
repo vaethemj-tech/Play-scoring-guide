@@ -38,7 +38,7 @@ export const DEFAULT_SETTINGS = {
 }
 
 // Visible build tag so it's unambiguous which deployed version is loaded.
-export const APP_VERSION = '15'
+export const APP_VERSION = '16'
 
 // AI venue-fit scoring categories (each rated 1–10 for the user's venue).
 export const FIT_CATEGORIES = [
@@ -49,6 +49,23 @@ export const FIT_CATEGORIES = [
   { id: 'localDraw', label: 'Local Box-Office Draw' },
 ]
 export const FIT_MAX = FIT_CATEGORIES.length * 10
+
+// Rows of the Season Balance Matrix.
+export const SEASON_FACTORS = [
+  { id: 'genre', label: 'Genre' },
+  { id: 'tone', label: 'Tone (Comedy / Drama / Thriller / Musical)' },
+  { id: 'castSize', label: 'Cast Size (Small 2–6 / Medium 7–12 / Large 13+)' },
+  { id: 'genderBalance', label: 'Gender Balance of Roles' },
+  { id: 'techComplexity', label: 'Technical Complexity (Low / Medium / High)' },
+  { id: 'setComplexity', label: 'Set Complexity' },
+  { id: 'costume', label: 'Costume Demands' },
+  { id: 'audienceDraw', label: 'Audience Draw (Low / Medium / High)' },
+  { id: 'artisticRisk', label: 'Artistic Risk' },
+  { id: 'timePeriod', label: 'Time Period (Classic / Modern / Contemporary)' },
+  { id: 'specialNeeds', label: 'Special Production Needs' },
+]
+// The three fillable show columns (the Wildcard column is always left blank).
+export const MATRIX_SLOTS = ['show1', 'show2', 'show3']
 
 // The model and web-search tools used for AI market research. The newer tool
 // version is tried first; if an account doesn't accept it, research falls back
@@ -66,6 +83,7 @@ export const TABS = [
   { id: 'plays', label: 'Add / Edit Plays' },
   { id: 'research', label: 'Research' },
   { id: 'compare', label: 'Compare' },
+  { id: 'matrix', label: 'Season Balance' },
   { id: 'settings', label: 'Settings' },
   { id: 'export', label: 'Export' },
 ]

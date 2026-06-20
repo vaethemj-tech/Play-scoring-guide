@@ -4,6 +4,7 @@ import Dashboard from './components/Dashboard.jsx'
 import PlaysManager from './components/PlaysManager.jsx'
 import Research from './components/Research.jsx'
 import Compare from './components/Compare.jsx'
+import SeasonMatrix from './components/SeasonMatrix.jsx'
 import Settings from './components/Settings.jsx'
 import Export from './components/Export.jsx'
 import SyncBar from './components/SyncBar.jsx'
@@ -15,6 +16,10 @@ import {
   saveSettings,
   clearAll,
   loadMemberId,
+  loadMatrix,
+  saveMatrix,
+  emptyMatrix,
+  normalizeMatrix,
 } from './lib/storage.js'
 import {
   cloudConfigured,
@@ -38,6 +43,7 @@ export default function App() {
   const [tab, setTab] = useState('dashboard')
   const [plays, setPlays] = useState(() => loadPlays())
   const [settings, setSettings] = useState(() => loadSettings())
+  const [matrix, setMatrix] = useState(() => loadMatrix())
   const [syncStatus, setSyncStatus] = useState('off')
   const [online, setOnline] = useState([])
   const [boardUpdatedAt, setBoardUpdatedAt] = useState(null)
@@ -55,6 +61,9 @@ export default function App() {
   useEffect(() => {
     saveSettings(settings)
   }, [settings])
+  useEffect(() => {
+    saveMatrix(matrix)
+  }, [matrix])
 
   // Applies a shared board payload from the cloud into local state. Records the
   // payload hash so the save effect treats the resulting state change as an echo.
@@ -65,6 +74,7 @@ export default function App() {
     if (data.shared && typeof data.shared === 'object') {
       setSettings((prev) => ({ ...prev, ...data.shared }))
     }
+    if (data.matrix) setMatrix(normalizeMatrix(data.matrix))
   }
 
   // Connect (and reconnect when the connection settings change).
@@ -88,7 +98,7 @@ export default function App() {
           applyCloud(row.data)
         } else {
           // No board yet — seed it from this device's current data.
-          const data = buildSharedData(plays, settings)
+          const data = buildSharedData(plays, settings, matrix)
           lastSyncedJson.current = JSON.stringify(data)
           lastUpdatedAt.current = await cloudSave(settings, data)
           setBoardUpdatedAt(lastUpdatedAt.current)
@@ -134,7 +144,7 @@ export default function App() {
   // before the initial connect has completed.
   useEffect(() => {
     if (!cloudConfigured(settings) || !ready.current) return undefined
-    const data = buildSharedData(plays, settings)
+    const data = buildSharedData(plays, settings, matrix)
     const json = JSON.stringify(data)
     if (json === lastSyncedJson.current) return undefined
     const t = setTimeout(async () => {
@@ -151,6 +161,7 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     plays,
+    matrix,
     settings.theaterName,
     settings.seasonYear,
     settings.maxScore,
@@ -197,7 +208,7 @@ export default function App() {
     if (!cloudConfigured(settings)) return
     setSyncStatus('connecting')
     try {
-      const data = buildSharedData(plays, settings)
+      const data = buildSharedData(plays, settings, matrix)
       const json = JSON.stringify(data)
       if (json !== lastSyncedJson.current) {
         lastSyncedJson.current = json
@@ -260,6 +271,7 @@ export default function App() {
     clearAll()
     setPlays([])
     setSettings({ ...DEFAULT_SETTINGS })
+    setMatrix(emptyMatrix())
     setTab('dashboard')
   }
 
@@ -290,6 +302,9 @@ export default function App() {
           <Research plays={plays} settings={settings} onResearched={saveResearch} />
         )}
         {tab === 'compare' && <Compare plays={plays} settings={settings} />}
+        {tab === 'matrix' && (
+          <SeasonMatrix plays={plays} matrix={matrix} setMatrix={setMatrix} settings={settings} />
+        )}
         {tab === 'settings' && (
           <Settings
             settings={settings}

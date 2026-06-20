@@ -1,4 +1,4 @@
-import { RESEARCH_MODEL, WEB_SEARCH_TOOLS, FIT_CATEGORIES } from '../constants.js'
+import { RESEARCH_MODEL, WEB_SEARCH_TOOLS, FIT_CATEGORIES, SEASON_FACTORS } from '../constants.js'
 import { getScore, maxScore } from './scoring.js'
 
 const API_URL = 'https://api.anthropic.com/v1/messages'
@@ -424,6 +424,101 @@ Cover the key trade-offs: artistic value, audience/demographic appeal, licensing
 Be concise and board-ready. Use short paragraphs or bullet points. Do not invent facts beyond what's provided; if research is missing for a play, say so.
 
 ${sections}`
+}
+
+function showFacts(p) {
+  if (!p) return null
+  const r = p.research
+  return [
+    `Title: ${p.title || '(untitled)'}${p.playwright ? ' by ' + p.playwright : ''}`,
+    `Genre: ${p.genre || 'unknown'}`,
+    `Cast size: ${p.castMin || '?'}–${p.castMax || '?'}`,
+    `Year written: ${p.yearWritten || 'unknown'}`,
+    `Runtime: ${p.runtime ? p.runtime + ' min' : 'unknown'}`,
+    p.staging ? `Staging notes: ${p.staging}` : null,
+    r?.summary ? `Research summary: ${r.summary}` : null,
+    r?.complexity ? `Production complexity: ${r.complexity}` : null,
+    r ? `Ratings — complexity: ${r.complexityRating}, audience appeal: ${r.audienceAppealRating}` : null,
+  ]
+    .filter(Boolean)
+    .join('\n')
+}
+
+// Auto-fills the Season Balance Matrix factor values for the given shows
+// (array of up to 3 play objects, by slot). Plain text JSON call — fast.
+export async function runSeasonMatrix(shows, settings) {
+  const apiKey = settings.apiKey?.trim()
+  if (!apiKey) throw new Error('No Anthropic API key set. Add one in Settings to auto-fill.')
+
+  const slots = ['show1', 'show2', 'show3']
+  const present = slots.filter((s, i) => shows[i])
+  if (!present.length) throw new Error('Pick at least one show to auto-fill.')
+
+  const showBlocks = slots
+    .map((slot, i) => (shows[i] ? `=== ${slot} ===\n${showFacts(shows[i])}` : null))
+    .filter(Boolean)
+    .join('\n\n')
+
+  const factorList = SEASON_FACTORS.map((f) => `- ${f.id}: ${f.label}`).join('\n')
+
+  const prompt = `You are filling a theater "Season Balance Matrix". For each show below, give a SHORT value (a word or brief phrase) for each factor. Where a factor lists options in parentheses, choose one of those options. Base your answers on the show's details and research; use your theater knowledge where details are missing.
+
+FACTORS:
+${factorList}
+
+SHOWS:
+${showBlocks}
+
+Return ONLY a JSON object (no markdown) with one key per show slot that was provided (${present.join(', ')}). Each maps to an object whose keys are the factor ids above and whose values are short strings. Example shape:
+{ "show1": { "genre": "Comedy", "tone": "Comedy", "castSize": "Medium 7–12", "genderBalance": "Balanced", "techComplexity": "Low", "setComplexity": "Single set", "costume": "Modern, low", "audienceDraw": "High", "artisticRisk": "Low", "timePeriod": "Contemporary", "specialNeeds": "None" } }`
+
+  const res = await callAnthropic(apiKey, {
+    model: RESEARCH_MODEL,
+    max_tokens: 1500,
+    messages: [{ role: 'user', content: prompt }],
+  })
+  const text = (res.content || [])
+    .filter((b) => b.type === 'text')
+    .map((b) => b.text)
+    .join('\n')
+  const data = parseJsonCandidate(text)
+  if (!data) throw new Error('Could not read the auto-fill result. Please try again.')
+  return data // { show1: {factorId: value}, ... }
+}
+
+// Reviews the balance of the season matrix and recommends the Wildcard slot.
+export async function runBalanceReview(matrix, shows, settings) {
+  const apiKey = settings.apiKey?.trim()
+  if (!apiKey) throw new Error('No Anthropic API key set. Add one in Settings for the AI review.')
+
+  const slots = ['show1', 'show2', 'show3']
+  const lines = SEASON_FACTORS.map((f) => {
+    const vals = slots.map((s, i) => {
+      const title = shows[i]?.title || s
+      return `${title}: ${matrix.values?.[f.id]?.[s] || '—'}`
+    })
+    return `${f.label} -> ${vals.join(' | ')}`
+  }).join('\n')
+
+  const prompt = `You are a theater programming advisor for ${settings.theaterName || 'a community theater'} (${settings.venueType || 'venue'}${settings.venueLocation ? ', ' + settings.venueLocation : ''}). Review the balance of this three-show season. The fourth slot, "Wildcard", is intentionally left open.
+
+SEASON MATRIX (factor -> each show's value):
+${lines}
+
+Assess the season's overall balance and variety across genre, tone, cast size, technical/set/costume demands, audience draw, artistic risk, and time period. Point out redundancy (too much of one thing) and gaps (what's missing). Then recommend specifically what the WILDCARD show should provide to balance the season (e.g. "a small-cast contemporary drama to offset two large musicals"). Be concise and board-ready — short paragraphs or bullets.`
+
+  const res = await callAnthropic(apiKey, {
+    model: RESEARCH_MODEL,
+    max_tokens: 1500,
+    messages: [{ role: 'user', content: prompt }],
+  })
+  const text = (res.content || [])
+    .filter((b) => b.type === 'text')
+    .map((b) => b.text)
+    .join('\n')
+    .trim()
+  if (!text) throw new Error('The model returned no review. Please try again.')
+  return text
 }
 
 // Generates a board-ready compare-and-contrast write-up from the selected
