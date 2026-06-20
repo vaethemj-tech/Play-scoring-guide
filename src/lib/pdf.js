@@ -180,6 +180,8 @@ export function generateReport(rankedPlays, settings, options = {}) {
 
       const blocks = [
         ['Summary', r.summary],
+        ['Playwright Recognition', r.playwrightNotoriety],
+        ['Source Material & Draw', r.sourceMaterial],
         ['Licensing & Royalties', r.licensing],
         ['Recent Production History', r.productionHistory],
         ['Audience Reception', r.audienceReception],

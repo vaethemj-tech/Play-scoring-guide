@@ -100,6 +100,8 @@ export default function Compare({ plays, settings }) {
 
   const researchRows = [
     ['Research — Summary', 'summary'],
+    ['Playwright Recognition', 'playwrightNotoriety'],
+    ['Source Material & Draw', 'sourceMaterial'],
     ['Licensing & Royalties', 'licensing'],
     ['Production History', 'productionHistory'],
     ['Audience Reception', 'audienceReception'],

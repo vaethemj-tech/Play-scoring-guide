@@ -82,13 +82,14 @@ Research and report on, with reference to ${market}:
 2. Recent production history at comparable community or regional theaters.
 3. Audience reception notes and reviews from similar-sized markets.
 4. Known production complexity or budget considerations (set, cast, technical, music).
+5. The playwright's notoriety and reputation — major awards, how widely produced, and public name recognition — and whether the play is adapted from a well-known book, film, or other property, noting how much recognizable-title / built-in-audience draw that brings.
 
 Then score the play's fit for the venue above on a 1–10 scale per category (10 = excellent fit), grounded in the research and the venue/audience notes:
 - audienceEngagement: suits an intimate, immersive black-box-style space
-- demographicAppeal: resonates with this location's community audience
+- demographicAppeal: resonates with this location's community audience; give weight to a recognizable playwright and to familiar source material
 - stagingFit: works within a flexible/minimal set, small cast, limited wing/fly space
 - affordability: driven PRIMARILY by the actual licensing/royalty price you found (the same figure you put in rightsCost), plus production budget. Guide: clearly low/nominal rights (roughly under ~$100 per performance, or a small flat package) = 8–10; moderate (~$100–175 per performance) = 5–7; high or premium (large musicals, heavy royalties, roughly over ~$200 per performance) = 1–4. If no price is listed, estimate from the publisher and type of show, lean conservative, and do NOT default to a high score. This score MUST be consistent with rightsCost — an expensive show cannot score high on affordability.
-- localDraw: likely to sell tickets in this local market
+- localDraw: likely to sell tickets in this local market — give meaningful weight to the playwright's fame and to recognizable source material (a play adapted from a popular book or film carries built-in title recognition that boosts draw)
 
 Keep the fit scores internally consistent with the research (affordability with rightsCost, stagingFit with production complexity).
 
@@ -98,7 +99,9 @@ Return ONLY a JSON object (no markdown, no code fences, no commentary before or 
   "productionHistory": "1-2 sentences",
   "audienceReception": "1-2 sentences",
   "complexity": "1-2 sentences",
-  "summary": "one short paragraph synthesizing the key takeaways for the board",
+  "playwrightNotoriety": "1 sentence on how recognized the playwright is (awards, how widely produced) and what draw their name carries",
+  "sourceMaterial": "if adapted from a book, film, or other property, name it and note the title-recognition draw; if not, use 'Original work'",
+  "summary": "one short paragraph synthesizing the key takeaways for the board, including any name-recognition or source-material draw",
   "rightsCost": "the actual licensing/royalty price if stated anywhere, e.g. '$90 per performance' or '$1,200 for a 6-show package'. If no price is found, use 'Not listed'.",
   "rightsHolder": "the publisher/licensor if known (Dramatists Play Service, Concord Theatricals/Samuel French, Music Theatre International, Playscripts, etc.), otherwise an empty string",
   "rightsAvailability": "your best judgment of how easy the rights are to obtain — exactly one of: Easy, Moderate, Hard, Unknown",
@@ -146,6 +149,8 @@ const EMPTY_RESEARCH_EXTRAS = {
   rightsAvailability: 'Unknown',
   complexityRating: 'Unknown',
   audienceAppealRating: 'Unknown',
+  playwrightNotoriety: '',
+  sourceMaterial: '',
   fit: null,
 }
 
@@ -364,6 +369,8 @@ export async function runResearch(play, settings) {
     productionHistory: data.productionHistory || '',
     audienceReception: data.audienceReception || '',
     complexity: data.complexity || '',
+    playwrightNotoriety: data.playwrightNotoriety || '',
+    sourceMaterial: data.sourceMaterial || '',
     summary: data.summary || '',
     sources: Array.isArray(data.sources) ? data.sources : [],
     rightsCost: data.rightsCost || '',
@@ -398,6 +405,8 @@ function buildComparePrompt(plays, settings) {
       const research = r
         ? [
             r.summary && `Summary: ${r.summary}`,
+            r.playwrightNotoriety && `Playwright recognition: ${r.playwrightNotoriety}`,
+            r.sourceMaterial && `Source material/draw: ${r.sourceMaterial}`,
             r.licensing && `Licensing/royalties: ${r.licensing}`,
             r.productionHistory && `Recent production history: ${r.productionHistory}`,
             r.audienceReception && `Audience reception: ${r.audienceReception}`,
