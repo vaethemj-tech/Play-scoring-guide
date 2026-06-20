@@ -75,9 +75,9 @@ export function generateReport(rankedPlays, settings, options = {}) {
     margin: { left: 48, right: 48 },
   })
 
-  // ---- Season Balance Matrix (optional) ----
-  if (options.matrix) {
-    addMatrixPage(doc, options.matrix, options.matrixShows || [])
+  // ---- Season Balance Matrix pages (optional, one per chosen option) ----
+  if (Array.isArray(options.matrices)) {
+    options.matrices.forEach(({ matrix, shows }) => addMatrixPage(doc, matrix, shows || []))
   }
 
   // ---- Per-play detail ----
@@ -232,7 +232,7 @@ export function generateReport(rankedPlays, settings, options = {}) {
 
 function addMatrixPage(doc, matrix, shows) {
   doc.addPage()
-  sectionHeading(doc, 'Season Balance Matrix', 56)
+  sectionHeading(doc, `Season Balance — ${matrix.name || 'Option'}`, 56)
   const wildcardLabel = matrix.wildcardLabel?.trim() || 'Wildcard'
   const head = [
     [

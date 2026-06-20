@@ -3,6 +3,7 @@ import EmptyState from './EmptyState.jsx'
 import { Sparkles } from './Icons.jsx'
 import { SEASON_FACTORS } from '../constants.js'
 import { sortByMetric } from '../lib/scoring.js'
+import { emptyMatrix } from '../lib/storage.js'
 import { runSeasonMatrix, runBalanceReview, runSeasonRecommendation } from '../lib/anthropic.js'
 import { useToast } from './Toast.jsx'
 
@@ -22,12 +23,40 @@ function Spinner() {
   )
 }
 
-export default function SeasonMatrix({ plays, matrix, setMatrix, settings }) {
+export default function SeasonMatrix({ plays, matrices, setMatrices, settings }) {
   const toast = useToast()
   const [autoBusy, setAutoBusy] = useState(false)
   const [reviewBusy, setReviewBusy] = useState(false)
   const [seedId, setSeedId] = useState('')
   const [recBusy, setRecBusy] = useState(false)
+  const [activeId, setActiveId] = useState(matrices[0]?.id)
+
+  // The option currently being edited, plus a setter scoped to it.
+  const active = matrices.find((m) => m.id === activeId) || matrices[0]
+  const matrix = active
+  const setMatrix = (updater) =>
+    setMatrices((arr) =>
+      arr.map((m) =>
+        m.id === active.id ? (typeof updater === 'function' ? updater(m) : updater) : m,
+      ),
+    )
+
+  function addOption() {
+    const m = emptyMatrix(`Option ${String.fromCharCode(65 + matrices.length)}`)
+    setMatrices((arr) => [...arr, m])
+    setActiveId(m.id)
+  }
+
+  function deleteOption() {
+    if (matrices.length <= 1) {
+      toast('Keep at least one season option.', 'error')
+      return
+    }
+    if (!confirm(`Delete "${active.name}"?`)) return
+    const nextId = matrices.find((m) => m.id !== active.id)?.id
+    setMatrices((arr) => arr.filter((m) => m.id !== active.id))
+    setActiveId(nextId)
+  }
 
   const hasKey = Boolean(settings.apiKey?.trim())
   const ranked = sortByMetric(plays, settings, 'combined', 'desc')
@@ -157,10 +186,50 @@ export default function SeasonMatrix({ plays, matrix, setMatrix, settings }) {
         </div>
       </div>
 
+      {/* Season options */}
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        {matrices.map((m) => (
+          <button
+            key={m.id}
+            onClick={() => setActiveId(m.id)}
+            className={`rounded-full border px-3 py-1.5 text-sm font-medium ${
+              m.id === active.id
+                ? 'border-primary bg-primary text-white'
+                : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50'
+            }`}
+          >
+            {m.name || 'Untitled'}
+          </button>
+        ))}
+        <button
+          onClick={addOption}
+          className="rounded-full border border-dashed border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-500 hover:bg-slate-50"
+        >
+          + Add option
+        </button>
+      </div>
+
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <label className="text-sm text-slate-500">Option name</label>
+        <input
+          className="field-input w-auto"
+          value={active.name || ''}
+          onChange={(e) => setMatrix((m) => ({ ...m, name: e.target.value }))}
+          placeholder="e.g. Crowd-pleaser season"
+        />
+        <button
+          className="text-sm font-medium text-red-600 hover:text-red-700"
+          onClick={deleteOption}
+        >
+          Delete option
+        </button>
+      </div>
+
       <p className="mb-4 text-sm text-slate-500">
-        Choose three shows, then auto-fill the grid from their data and research or type your own
-        values. The <strong>Wildcard</strong> is the open 4th slot — empty by default, but you can
-        rename its header and fill it in by hand. AI auto-fill and recommendations leave it for you.
+        Build one or more season options. For each, choose three shows, then auto-fill the grid from
+        their data and research or type your own values. The <strong>Wildcard</strong> is the open
+        4th slot — empty by default, but you can rename its header and fill it in by hand. You can
+        include any of these options in the exported PDF.
       </p>
 
       {!hasKey && (

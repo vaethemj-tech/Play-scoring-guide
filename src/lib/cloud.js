@@ -23,10 +23,10 @@ function headers(s) {
 }
 
 // The subset of app state shared across the team.
-export function buildSharedData(plays, settings, matrix) {
+export function buildSharedData(plays, settings, matrices) {
   return {
     plays,
-    matrix,
+    matrices,
     shared: {
       theaterName: settings.theaterName,
       seasonYear: settings.seasonYear,

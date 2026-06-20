@@ -12,24 +12,32 @@ const MODES = [
   { id: 'pick', label: 'Choose specific shows' },
 ]
 
-export default function Export({ plays, settings, matrix }) {
+function matrixHasData(m, byId) {
+  return (
+    (m?.shows || []).some((id) => byId[id]) ||
+    Boolean(m?.reviewText) ||
+    Boolean(m?.recommendationText) ||
+    Object.values(m?.values || {}).some((row) => Object.values(row || {}).some((val) => val))
+  )
+}
+
+export default function Export({ plays, settings, matrices = [] }) {
   const toast = useToast()
   const [mode, setMode] = useState('all')
   const [topN, setTopN] = useState(10)
   const [selectedIds, setSelectedIds] = useState([])
-  const [includeMatrix, setIncludeMatrix] = useState(true)
 
   const ranked = sortByMetric(plays, settings, 'combined', 'desc')
   const byId = Object.fromEntries(plays.map((p) => [p.id, p]))
 
-  const matrixShows = (matrix?.shows || []).map((id) => byId[id] || null)
-  const matrixHasData =
-    matrixShows.some(Boolean) ||
-    Boolean(matrix?.reviewText) ||
-    Boolean(matrix?.recommendationText) ||
-    Object.values(matrix?.values || {}).some((row) =>
-      Object.values(row || {}).some((val) => val),
-    )
+  // Season-option matrices that have any content, and which are checked.
+  const availableMatrices = matrices.filter((m) => matrixHasData(m, byId))
+  const [excludedMatrixIds, setExcludedMatrixIds] = useState([])
+  const includedMatrices = availableMatrices.filter((m) => !excludedMatrixIds.includes(m.id))
+
+  function toggleMatrix(id) {
+    setExcludedMatrixIds((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]))
+  }
 
   // The plays that will actually go into the PDF. For "pick", the report order
   // follows the user's arrangement (selectedIds order); otherwise ranked.
@@ -63,8 +71,10 @@ export default function Export({ plays, settings, matrix }) {
     try {
       generateReport(chosen, settings, {
         topN: null,
-        matrix: includeMatrix && matrixHasData ? matrix : null,
-        matrixShows,
+        matrices: includedMatrices.map((m) => ({
+          matrix: m,
+          shows: (m.shows || []).map((id) => byId[id] || null),
+        })),
       })
       toast(`Report generated (${chosen.length} play${chosen.length === 1 ? '' : 's'})`, 'success')
     } catch (err) {
@@ -254,18 +264,28 @@ export default function Export({ plays, settings, matrix }) {
           </div>
         )}
 
-        {matrixHasData && (
-          <label className="mt-5 flex items-center gap-3 rounded-lg border border-slate-200 p-4">
-            <input
-              type="checkbox"
-              className="h-4 w-4 accent-accent"
-              checked={includeMatrix}
-              onChange={(e) => setIncludeMatrix(e.target.checked)}
-            />
-            <span className="text-sm font-medium text-slate-700">
-              Include the Season Balance Matrix page
-            </span>
-          </label>
+        {availableMatrices.length > 0 && (
+          <div className="mt-5 rounded-lg border border-slate-200 p-4">
+            <p className="mb-2 text-sm font-medium text-slate-700">
+              Season Balance Matrix pages to include
+            </p>
+            <div className="space-y-1.5">
+              {availableMatrices.map((m) => (
+                <label key={m.id} className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 accent-accent"
+                    checked={!excludedMatrixIds.includes(m.id)}
+                    onChange={() => toggleMatrix(m.id)}
+                  />
+                  <span className="text-sm text-slate-700">{m.name || 'Untitled option'}</span>
+                </label>
+              ))}
+            </div>
+            <p className="mt-2 text-xs text-slate-400">
+              Each checked option becomes its own page in the report.
+            </p>
+          </div>
         )}
 
         <button className="btn-primary mt-6 w-full" onClick={handleGenerate}>
