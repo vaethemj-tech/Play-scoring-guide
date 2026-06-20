@@ -3,7 +3,7 @@ import EmptyState from './EmptyState.jsx'
 import { Sparkles } from './Icons.jsx'
 import { SEASON_FACTORS } from '../constants.js'
 import { sortByMetric } from '../lib/scoring.js'
-import { emptyMatrix } from '../lib/storage.js'
+import { emptyMatrix, uid } from '../lib/storage.js'
 import { runSeasonMatrix, runBalanceReview, runSeasonRecommendation } from '../lib/anthropic.js'
 import { useToast } from './Toast.jsx'
 
@@ -45,6 +45,13 @@ export default function SeasonMatrix({ plays, matrices, setMatrices, settings })
     const m = emptyMatrix(`Option ${String.fromCharCode(65 + matrices.length)}`)
     setMatrices((arr) => [...arr, m])
     setActiveId(m.id)
+  }
+
+  function duplicateOption() {
+    const copy = { ...structuredClone(active), id: uid(), name: `${active.name || 'Option'} (copy)` }
+    setMatrices((arr) => [...arr, copy])
+    setActiveId(copy.id)
+    toast('Option duplicated', 'success')
   }
 
   function deleteOption() {
@@ -217,6 +224,12 @@ export default function SeasonMatrix({ plays, matrices, setMatrices, settings })
           onChange={(e) => setMatrix((m) => ({ ...m, name: e.target.value }))}
           placeholder="e.g. Crowd-pleaser season"
         />
+        <button
+          className="text-sm font-medium text-accent hover:text-primary"
+          onClick={duplicateOption}
+        >
+          Duplicate
+        </button>
         <button
           className="text-sm font-medium text-red-600 hover:text-red-700"
           onClick={deleteOption}

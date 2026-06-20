@@ -76,7 +76,8 @@ export function generateReport(rankedPlays, settings, options = {}) {
   })
 
   // ---- Season Balance Matrix pages (optional, one per chosen option) ----
-  if (Array.isArray(options.matrices)) {
+  if (Array.isArray(options.matrices) && options.matrices.length) {
+    if (options.matrices.length > 1) addMatricesSummaryPage(doc, options.matrices)
     options.matrices.forEach(({ matrix, shows }) => addMatrixPage(doc, matrix, shows || []))
   }
 
@@ -228,6 +229,27 @@ export function generateReport(rankedPlays, settings, options = {}) {
 
   const safeName = (settings.theaterName || 'theater').replace(/[^a-z0-9]+/gi, '-').toLowerCase()
   doc.save(`${safeName}-play-report-${settings.seasonYear || ''}.pdf`)
+}
+
+function addMatricesSummaryPage(doc, items) {
+  doc.addPage()
+  sectionHeading(doc, 'Season Options at a Glance', 56)
+  autoTable(doc, {
+    startY: 76,
+    head: [['Option', 'Show 1', 'Show 2', 'Show 3', 'Wildcard']],
+    body: items.map(({ matrix, shows }) => [
+      matrix.name || 'Option',
+      shows[0]?.title || '—',
+      shows[1]?.title || '—',
+      shows[2]?.title || '—',
+      matrix.wildcardLabel?.trim() || '(open)',
+    ]),
+    styles: { fontSize: 10, cellPadding: 6, valign: 'top' },
+    headStyles: { fillColor: PRIMARY, textColor: 255 },
+    columnStyles: { 0: { fontStyle: 'bold' } },
+    alternateRowStyles: { fillColor: [241, 245, 249] },
+    margin: { left: 48, right: 48 },
+  })
 }
 
 function addMatrixPage(doc, matrix, shows) {
