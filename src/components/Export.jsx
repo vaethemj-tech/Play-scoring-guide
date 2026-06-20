@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import EmptyState from './EmptyState.jsx'
 import ScoreBadge from './ScoreBadge.jsx'
-import { Download } from './Icons.jsx'
+import { Download, ChevronUp, ChevronDown, Trash } from './Icons.jsx'
 import { sortByMetric, combinedScore, combinedTier } from '../lib/scoring.js'
 import { generateReport } from '../lib/pdf.js'
 import { useToast } from './Toast.jsx'
@@ -19,16 +19,29 @@ export default function Export({ plays, settings }) {
   const [selectedIds, setSelectedIds] = useState([])
 
   const ranked = sortByMetric(plays, settings, 'combined', 'desc')
+  const byId = Object.fromEntries(plays.map((p) => [p.id, p]))
 
-  // The plays that will actually go into the PDF, in ranked order.
+  // The plays that will actually go into the PDF. For "pick", the report order
+  // follows the user's arrangement (selectedIds order); otherwise ranked.
   function chosenPlays() {
     if (mode === 'top') return ranked.slice(0, Math.max(1, Number(topN) || 1))
-    if (mode === 'pick') return ranked.filter((p) => selectedIds.includes(p.id))
+    if (mode === 'pick') return selectedIds.map((id) => byId[id]).filter(Boolean)
     return ranked
   }
 
   function toggle(id) {
     setSelectedIds((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]))
+  }
+
+  function move(id, dir) {
+    setSelectedIds((ids) => {
+      const i = ids.indexOf(id)
+      const j = dir === 'up' ? i - 1 : i + 1
+      if (i < 0 || j < 0 || j >= ids.length) return ids
+      const next = [...ids]
+      ;[next[i], next[j]] = [next[j], next[i]]
+      return next
+    })
   }
 
   function handleGenerate() {
@@ -172,6 +185,54 @@ export default function Export({ plays, settings }) {
                         {Math.round(combinedScore(p, settings))}
                       </ScoreBadge>
                     </label>
+                  </li>
+                )
+              })}
+            </ul>
+          </div>
+        )}
+
+        {mode === 'pick' && selectedIds.length > 0 && (
+          <div className="mt-4 rounded-lg border border-slate-200 p-3">
+            <p className="mb-2 text-sm font-medium text-slate-700">
+              Report order <span className="font-normal text-slate-400">(arrange with the arrows)</span>
+            </p>
+            <ul className="space-y-1">
+              {selectedIds.map((id, idx) => {
+                const p = byId[id]
+                if (!p) return null
+                return (
+                  <li
+                    key={id}
+                    className="flex items-center gap-2 rounded-md border border-slate-200 px-2 py-1.5"
+                  >
+                    <span className="w-5 text-center text-xs font-bold text-slate-400">{idx + 1}</span>
+                    <span className="min-w-0 flex-1 truncate text-sm text-slate-800">
+                      {p.title || '(untitled)'}
+                    </span>
+                    <button
+                      className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-primary disabled:opacity-30"
+                      title="Move up"
+                      disabled={idx === 0}
+                      onClick={() => move(id, 'up')}
+                    >
+                      <ChevronUp width={16} height={16} />
+                    </button>
+                    <button
+                      className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-primary disabled:opacity-30"
+                      title="Move down"
+                      disabled={idx === selectedIds.length - 1}
+                      onClick={() => move(id, 'down')}
+                    >
+                      <ChevronDown width={16} height={16} />
+                    </button>
+                    <button
+                      className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600"
+                      title="Remove"
+                      onClick={() => toggle(id)}
+                    >
+                      <Trash width={16} height={16} />
+                    </button>
                   </li>
                 )
               })}

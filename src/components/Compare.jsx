@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import EmptyState from './EmptyState.jsx'
 import ScoreBadge from './ScoreBadge.jsx'
-import { Sparkles } from './Icons.jsx'
+import { Sparkles, Download } from './Icons.jsx'
+import { generateReport } from '../lib/pdf.js'
 import {
   getScore,
   maxScore,
@@ -61,6 +62,15 @@ export default function Compare({ plays, settings }) {
     setSelectedIds((ids) =>
       ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id],
     )
+  }
+
+  function exportSelected() {
+    try {
+      generateReport(selected, settings, { topN: null })
+      toast(`Report generated (${selected.length} plays)`, 'success')
+    } catch (err) {
+      toast(`Could not generate report: ${err.message}`, 'error')
+    }
   }
 
   async function generate() {
@@ -171,14 +181,19 @@ export default function Compare({ plays, settings }) {
           </div>
 
           {/* Side-by-side table */}
-          <div className="mb-2 flex items-center justify-between">
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
             <h3 className="text-base font-semibold text-slate-800">Side-by-side</h3>
-            <button
-              className="text-sm font-medium text-accent hover:text-primary"
-              onClick={() => setCondensed((c) => !c)}
-            >
-              {condensed ? 'Show full research' : 'Show condensed research'}
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                className="text-sm font-medium text-accent hover:text-primary"
+                onClick={() => setCondensed((c) => !c)}
+              >
+                {condensed ? 'Show full research' : 'Show condensed research'}
+              </button>
+              <button className="btn-ghost py-1.5" onClick={exportSelected}>
+                <Download width={16} height={16} /> Export these to PDF
+              </button>
+            </div>
           </div>
           <div className="overflow-x-auto rounded-xl border border-slate-200">
             <table className="min-w-full border-collapse text-sm">
