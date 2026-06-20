@@ -46,3 +46,14 @@ export function clearAll() {
 export function uid() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8)
 }
+
+// A stable per-device id used for cloud presence (who's online).
+const MEMBER_KEY = 'psg_member_id'
+export function loadMemberId() {
+  let id = localStorage.getItem(MEMBER_KEY)
+  if (!id) {
+    id = uid()
+    localStorage.setItem(MEMBER_KEY, id)
+  }
+  return id
+}

@@ -6,6 +6,7 @@ import Research from './components/Research.jsx'
 import Compare from './components/Compare.jsx'
 import Settings from './components/Settings.jsx'
 import Export from './components/Export.jsx'
+import SyncBar from './components/SyncBar.jsx'
 import { useToast } from './components/Toast.jsx'
 import {
   loadPlays,
@@ -13,8 +14,16 @@ import {
   loadSettings,
   saveSettings,
   clearAll,
+  loadMemberId,
 } from './lib/storage.js'
-import { cloudConfigured, cloudLoad, cloudSave, buildSharedData } from './lib/cloud.js'
+import {
+  cloudConfigured,
+  cloudLoad,
+  cloudSave,
+  buildSharedData,
+  cloudHeartbeat,
+  cloudPresence,
+} from './lib/cloud.js'
 import { DEFAULT_SETTINGS, APP_VERSION } from './constants.js'
 
 const SYNC_LABEL = {
@@ -30,6 +39,9 @@ export default function App() {
   const [plays, setPlays] = useState(() => loadPlays())
   const [settings, setSettings] = useState(() => loadSettings())
   const [syncStatus, setSyncStatus] = useState('off')
+  const [online, setOnline] = useState([])
+  const [boardUpdatedAt, setBoardUpdatedAt] = useState(null)
+  const [memberId] = useState(() => loadMemberId())
 
   // Cloud-sync bookkeeping (refs so changes don't re-trigger effects).
   const lastUpdatedAt = useRef(null)
@@ -72,12 +84,14 @@ export default function App() {
         if (cancelled) return
         if (row) {
           lastUpdatedAt.current = row.updated_at
+          setBoardUpdatedAt(row.updated_at)
           applyCloud(row.data)
         } else {
           // No board yet — seed it from this device's current data.
           const data = buildSharedData(plays, settings)
           lastSyncedJson.current = JSON.stringify(data)
           lastUpdatedAt.current = await cloudSave(settings, data)
+          setBoardUpdatedAt(lastUpdatedAt.current)
         }
         if (!cancelled) {
           ready.current = true
@@ -103,7 +117,9 @@ export default function App() {
         const json = JSON.stringify(row.data)
         if (row.updated_at !== lastUpdatedAt.current && json !== lastSyncedJson.current) {
           lastUpdatedAt.current = row.updated_at
+          setBoardUpdatedAt(row.updated_at)
           applyCloud(row.data)
+          toast('A teammate updated the board', 'info')
         }
         setSyncStatus('synced')
       } catch {
@@ -125,6 +141,7 @@ export default function App() {
       try {
         lastSyncedJson.current = json
         lastUpdatedAt.current = await cloudSave(settings, data)
+        setBoardUpdatedAt(lastUpdatedAt.current)
         setSyncStatus('synced')
       } catch {
         setSyncStatus('error')
@@ -142,6 +159,68 @@ export default function App() {
     settings.audienceNotes,
     settings.scoreBlend,
   ])
+
+  // Presence heartbeat — let teammates know this member is online.
+  useEffect(() => {
+    if (!cloudConfigured(settings)) return undefined
+    const beat = () =>
+      cloudHeartbeat(settings, memberId, settings.memberName).catch(() => {})
+    beat()
+    const id = setInterval(beat, 25000)
+    return () => clearInterval(id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settings.supabaseUrl, settings.supabaseKey, settings.boardCode, settings.memberName])
+
+  // Read who's online (members seen in the last ~70s).
+  useEffect(() => {
+    if (!cloudConfigured(settings)) {
+      setOnline([])
+      return undefined
+    }
+    const load = async () => {
+      try {
+        const rows = await cloudPresence(settings)
+        const now = Date.now()
+        setOnline(rows.filter((r) => now - (r.lastSeen || 0) < 70000))
+      } catch {
+        /* ignore presence errors */
+      }
+    }
+    load()
+    const id = setInterval(load, 15000)
+    return () => clearInterval(id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settings.supabaseUrl, settings.supabaseKey, settings.boardCode])
+
+  // Manual sync: push any pending local change, then pull the latest.
+  async function syncNow() {
+    if (!cloudConfigured(settings)) return
+    setSyncStatus('connecting')
+    try {
+      const data = buildSharedData(plays, settings)
+      const json = JSON.stringify(data)
+      if (json !== lastSyncedJson.current) {
+        lastSyncedJson.current = json
+        lastUpdatedAt.current = await cloudSave(settings, data)
+        setBoardUpdatedAt(lastUpdatedAt.current)
+      }
+      const row = await cloudLoad(settings)
+      if (
+        row &&
+        row.updated_at !== lastUpdatedAt.current &&
+        JSON.stringify(row.data) !== lastSyncedJson.current
+      ) {
+        lastUpdatedAt.current = row.updated_at
+        setBoardUpdatedAt(row.updated_at)
+        applyCloud(row.data)
+        toast('Pulled the latest from your team', 'info')
+      }
+      setSyncStatus('synced')
+    } catch {
+      setSyncStatus('error')
+      toast('Sync failed — check your connection', 'error')
+    }
+  }
 
   // ---- Play operations ----
   function upsertPlay(play) {
@@ -187,6 +266,15 @@ export default function App() {
   return (
     <div className="min-h-screen bg-slate-100/40">
       <Nav active={tab} onChange={setTab} />
+      {cloudConfigured(settings) && (
+        <SyncBar
+          status={syncStatus}
+          online={online}
+          boardUpdatedAt={boardUpdatedAt}
+          onSyncNow={syncNow}
+          memberId={memberId}
+        />
+      )}
       <main className="mx-auto max-w-6xl px-4 py-8">
         {tab === 'dashboard' && <Dashboard plays={plays} settings={settings} />}
         {tab === 'plays' && (

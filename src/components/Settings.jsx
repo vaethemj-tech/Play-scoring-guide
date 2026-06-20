@@ -200,6 +200,18 @@ export default function Settings({ settings, onSave, onResetAll, syncStatus }) {
         </div>
         <div className="space-y-4">
           <div>
+            <label className="field-label">Your name</label>
+            <input
+              className="field-input"
+              value={draft.memberName}
+              onChange={(e) => set('memberName', e.target.value)}
+              placeholder="e.g. Pat (board president)"
+            />
+            <p className="mt-1 text-xs text-slate-400">
+              Shown to teammates as who's online and who last edited.
+            </p>
+          </div>
+          <div>
             <label className="field-label">Supabase Project URL</label>
             <input
               className="field-input font-mono"

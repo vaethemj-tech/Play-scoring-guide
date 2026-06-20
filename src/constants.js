@@ -33,10 +33,12 @@ export const DEFAULT_SETTINGS = {
   supabaseUrl: '',
   supabaseKey: '',
   boardCode: '',
+  // Shown to teammates as who's online / who edited (local identity).
+  memberName: 'Board member',
 }
 
 // Visible build tag so it's unambiguous which deployed version is loaded.
-export const APP_VERSION = '12'
+export const APP_VERSION = '13'
 
 // AI venue-fit scoring categories (each rated 1–10 for the user's venue).
 export const FIT_CATEGORIES = [
