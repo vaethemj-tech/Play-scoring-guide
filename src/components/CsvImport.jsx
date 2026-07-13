@@ -12,6 +12,7 @@ const BASE_FIELDS = [
   { key: 'castMin', label: 'Cast Min' },
   { key: 'castMax', label: 'Cast Max' },
   { key: 'staging', label: 'Staging Notes' },
+  { key: 'synopsis', label: 'Synopsis' },
   { key: 'score', label: 'Score (total)' },
 ]
 
@@ -87,6 +88,7 @@ export default function CsvImport({ settings, onImport, onCancel }) {
           castMin: get(row, 'castMin'),
           castMax: get(row, 'castMax'),
           staging: get(row, 'staging'),
+          synopsis: get(row, 'synopsis'),
           score,
           research: null,
           researchedAt: null,

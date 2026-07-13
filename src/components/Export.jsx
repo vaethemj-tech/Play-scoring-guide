@@ -26,6 +26,7 @@ export default function Export({ plays, settings, matrices = [] }) {
   const [mode, setMode] = useState('all')
   const [topN, setTopN] = useState(10)
   const [selectedIds, setSelectedIds] = useState([])
+  const [researchDetail, setResearchDetail] = useState('condensed')
 
   const ranked = sortByMetric(plays, settings, 'combined', 'desc')
   const byId = Object.fromEntries(plays.map((p) => [p.id, p]))
@@ -71,6 +72,7 @@ export default function Export({ plays, settings, matrices = [] }) {
     try {
       generateReport(chosen, settings, {
         topN: null,
+        researchDetail,
         matrices: includedMatrices.map((m) => ({
           matrix: m,
           shows: (m.shows || []).map((id) => byId[id] || null),
@@ -263,6 +265,33 @@ export default function Export({ plays, settings, matrices = [] }) {
             </ul>
           </div>
         )}
+
+        {/* Research detail level */}
+        <div className="mt-5">
+          <p className="mb-2 text-sm font-medium text-slate-700">Market research detail per play</p>
+          <div className="inline-flex overflow-hidden rounded-md border border-slate-300">
+            {[
+              { id: 'condensed', label: 'Condensed' },
+              { id: 'full', label: 'Full' },
+            ].map((o) => (
+              <button
+                key={o.id}
+                onClick={() => setResearchDetail(o.id)}
+                className={`px-3 py-1.5 text-sm font-medium transition-colors ${
+                  researchDetail === o.id
+                    ? 'bg-primary text-white'
+                    : 'bg-white text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                {o.label}
+              </button>
+            ))}
+          </div>
+          <p className="mt-2 text-xs text-slate-400">
+            Condensed shows the summary, key rights/production facts, and short recognition/source
+            notes. Full includes every research section.
+          </p>
+        </div>
 
         {availableMatrices.length > 0 && (
           <div className="mt-5 rounded-lg border border-slate-200 p-4">

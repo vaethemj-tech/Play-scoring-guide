@@ -259,7 +259,17 @@ export default function App() {
 
   function saveResearch(playId, research) {
     setPlays((prev) =>
-      prev.map((p) => (p.id === playId ? { ...p, research, researchedAt: Date.now() } : p)),
+      prev.map((p) =>
+        p.id === playId
+          ? {
+              ...p,
+              research,
+              researchedAt: Date.now(),
+              // Fill the synopsis from research only if the user hasn't written one.
+              synopsis: p.synopsis?.trim() ? p.synopsis : research.synopsis || '',
+            }
+          : p,
+      ),
     )
   }
 

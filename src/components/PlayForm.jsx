@@ -14,6 +14,7 @@ function emptyPlay() {
     castMin: '',
     castMax: '',
     staging: '',
+    synopsis: '',
     score: '',
     research: null,
     researchedAt: null,
@@ -129,6 +130,15 @@ export default function PlayForm({ settings, initial, onSave, onCancel }) {
               value={play.castMax}
               onChange={(e) => set('castMax', e.target.value)}
               placeholder="e.g. 20"
+            />
+          </div>
+          <div className="sm:col-span-2">
+            <label className="field-label">Synopsis</label>
+            <textarea
+              className="field-input min-h-[80px]"
+              value={play.synopsis}
+              onChange={(e) => set('synopsis', e.target.value)}
+              placeholder="A short plot summary. Leave blank and research will fill it in for you."
             />
           </div>
           <div className="sm:col-span-2">

@@ -12,6 +12,7 @@ function Chip({ value, kind }) {
 
 // Renders a play's saved market-research results.
 const SECTIONS = [
+  ['synopsis', 'Synopsis'],
   ['summary', 'Summary'],
   ['playwrightNotoriety', 'Playwright Recognition'],
   ['sourceMaterial', 'Source Material & Draw'],

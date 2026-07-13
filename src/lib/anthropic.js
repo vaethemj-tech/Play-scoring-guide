@@ -95,6 +95,7 @@ Keep the fit scores internally consistent with the research (affordability with 
 
 Return ONLY a JSON object (no markdown, no code fences, no commentary before or after) with exactly these keys:
 {
+  "synopsis": "a neutral 2-3 sentence plot synopsis of the play",
   "licensing": "1-2 sentences on licensing/royalty costs and how to obtain rights",
   "productionHistory": "1-2 sentences",
   "audienceReception": "1-2 sentences",
@@ -144,6 +145,7 @@ function normRating(value, allowed) {
 }
 
 const EMPTY_RESEARCH_EXTRAS = {
+  synopsis: '',
   rightsCost: '',
   rightsHolder: '',
   rightsAvailability: 'Unknown',
@@ -365,6 +367,7 @@ export async function runResearch(play, settings) {
   }
 
   return {
+    synopsis: data.synopsis || '',
     licensing: data.licensing || '',
     productionHistory: data.productionHistory || '',
     audienceReception: data.audienceReception || '',

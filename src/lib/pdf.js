@@ -7,6 +7,16 @@ const PRIMARY = [27, 79, 138] // #1B4F8A
 const ACCENT = [46, 117, 182] // #2E75B6
 const GRAY = [100, 116, 139]
 
+// Trims a paragraph to a short, scannable line (first sentence, or clipped).
+function condenseText(text, maxLen = 220) {
+  if (!text) return ''
+  const t = text.trim()
+  const firstSentence = t.match(/^.*?[.!?](\s|$)/)?.[0]?.trim()
+  let out = firstSentence && firstSentence.length <= maxLen + 40 ? firstSentence : t
+  if (out.length > maxLen) out = out.slice(0, maxLen).replace(/\s+\S*$/, '') + '…'
+  return out
+}
+
 function formatCast(play) {
   if (play.castMin && play.castMax) return `${play.castMin}–${play.castMax}`
   if (play.castMin) return `${play.castMin}+`
@@ -101,11 +111,36 @@ export function generateReport(rankedPlays, settings, options = {}) {
     doc.text(meta, 48, 76)
 
     let y = 100
+
+    // Synopsis (the play's own, or the one research generated)
+    const synopsis = p.synopsis || p.research?.synopsis
+    if (synopsis) {
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(11)
+      doc.setTextColor(...PRIMARY)
+      doc.text('Synopsis', 48, y)
+      y += 14
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(10)
+      doc.setTextColor(51, 65, 85)
+      doc.splitTextToSize(synopsis, pageW - 96).forEach((ln) => {
+        y = ensureSpace(doc, y, 14, pageH)
+        doc.text(ln, 48, y)
+        y += 13
+      })
+      y += 8
+    }
+
     if (p.staging) {
       doc.setFontSize(10)
+      doc.setTextColor(51, 65, 85)
       const stagingLines = doc.splitTextToSize(`Staging notes: ${p.staging}`, pageW - 96)
-      doc.text(stagingLines, 48, y)
-      y += stagingLines.length * 13 + 6
+      stagingLines.forEach((ln) => {
+        y = ensureSpace(doc, y, 14, pageH)
+        doc.text(ln, 48, y)
+        y += 13
+      })
+      y += 6
     }
 
     // Score callout — combined rank with the two components
@@ -172,21 +207,28 @@ export function generateReport(rankedPlays, settings, options = {}) {
     // Research summary
     if (p.research) {
       const r = p.research
+      const condensed = (options.researchDetail || 'condensed') !== 'full'
       doc.setFont('helvetica', 'bold')
       doc.setFontSize(12)
       doc.setTextColor(...PRIMARY)
-      doc.text('Market Research', 48, y)
+      doc.text(condensed ? 'Market Research (summary)' : 'Market Research', 48, y)
       y += 16
 
-      const blocks = [
-        ['Summary', r.summary],
-        ['Playwright Recognition', r.playwrightNotoriety],
-        ['Source Material & Draw', r.sourceMaterial],
-        ['Licensing & Royalties', r.licensing],
-        ['Recent Production History', r.productionHistory],
-        ['Audience Reception', r.audienceReception],
-        ['Production Complexity & Budget', r.complexity],
-      ]
+      const blocks = condensed
+        ? [
+            ['Summary', r.summary],
+            ['Playwright Recognition', condenseText(r.playwrightNotoriety)],
+            ['Source Material & Draw', condenseText(r.sourceMaterial)],
+          ]
+        : [
+            ['Summary', r.summary],
+            ['Playwright Recognition', r.playwrightNotoriety],
+            ['Source Material & Draw', r.sourceMaterial],
+            ['Licensing & Royalties', r.licensing],
+            ['Recent Production History', r.productionHistory],
+            ['Audience Reception', r.audienceReception],
+            ['Production Complexity & Budget', r.complexity],
+          ]
       doc.setFontSize(10)
       blocks.forEach(([label, body]) => {
         if (!body) return
