@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import EmptyState from './EmptyState.jsx'
 import { Sparkles } from './Icons.jsx'
+import RichText from './RichText.jsx'
 import { SEASON_FACTORS } from '../constants.js'
 import { sortByMetric } from '../lib/scoring.js'
 import { emptyMatrix, uid } from '../lib/storage.js'
@@ -366,9 +367,10 @@ export default function SeasonMatrix({ plays, matrices, setMatrices, settings })
           </div>
         </div>
         {matrix.recommendationText && (
-          <div className="mt-4 whitespace-pre-line rounded-lg border border-slate-200 bg-white p-4 text-sm leading-relaxed text-slate-700">
-            {matrix.recommendationText}
-          </div>
+          <RichText
+            text={matrix.recommendationText}
+            className="mt-4 rounded-lg border border-slate-200 bg-white p-4 text-sm text-slate-700"
+          />
         )}
       </div>
 
@@ -395,9 +397,10 @@ export default function SeasonMatrix({ plays, matrices, setMatrices, settings })
           </button>
         </div>
         {matrix.reviewText && (
-          <div className="mt-4 whitespace-pre-line rounded-lg border border-slate-200 bg-white p-4 text-sm leading-relaxed text-slate-700">
-            {matrix.reviewText}
-          </div>
+          <RichText
+            text={matrix.reviewText}
+            className="mt-4 rounded-lg border border-slate-200 bg-white p-4 text-sm text-slate-700"
+          />
         )}
       </div>
     </div>

@@ -516,7 +516,11 @@ export async function runBalanceReview(matrix, shows, settings) {
 SEASON MATRIX (factor -> each show's value):
 ${lines}
 
-Assess the season's overall balance and variety across genre, tone, cast size, technical/set/costume demands, audience draw, artistic risk, and time period. Point out redundancy (too much of one thing) and gaps (what's missing). Then recommend specifically what the WILDCARD show should provide to balance the season (e.g. "a small-cast contemporary drama to offset two large musicals"). Be concise and board-ready — short paragraphs or bullets.`
+Assess the season's overall balance and variety across genre, tone, cast size, technical/set/costume demands, audience draw, artistic risk, and time period. Point out redundancy (too much of one thing) and gaps (what's missing). Then recommend specifically what the WILDCARD show should provide to balance the season (e.g. "a small-cast contemporary drama to offset two heavier dramas").
+
+This theater does NOT produce musicals — do not recommend a musical for the Wildcard or elsewhere; suggest only non-musical plays.
+
+Format for easy reading: use a few short labeled points or simple dash bullets, not one dense block. Be concise and board-ready.`
 
   const res = await callAnthropic(apiKey, {
     model: RESEARCH_MODEL,
@@ -561,7 +565,9 @@ Recommend TWO additional shows that, together with the chosen show, make a well-
 The theater's other already-entered candidate plays:
 ${candidates}
 
-Prefer recommending from those candidates when one is a strong fit (name it exactly). If none fit a needed gap well, you may suggest a well-known title instead and say so. For each of the two recommendations, give the title and a one-sentence rationale tied to balancing the season. End with one sentence on what the still-open Wildcard could add. Be concise and board-ready.`
+Prefer recommending from those candidates when one is a strong fit (name it exactly). If none fit a needed gap well, you may suggest a well-known title instead and say so. For each of the two recommendations, give the title and a one-sentence rationale tied to balancing the season. End with one sentence on what the still-open Wildcard could add. Be concise and board-ready.
+
+IMPORTANT: This theater does NOT produce musicals. Do not recommend any musical — recommend only non-musical plays (straight plays), and do not suggest the Wildcard be a musical.`
 
   const res = await callAnthropic(apiKey, {
     model: RESEARCH_MODEL,

@@ -7,6 +7,20 @@ const PRIMARY = [27, 79, 138] // #1B4F8A
 const ACCENT = [46, 117, 182] // #2E75B6
 const GRAY = [100, 116, 139]
 
+// Converts simple Markdown to clean plain text for the PDF (no **, #, or raw -).
+function stripMd(text) {
+  return String(text || '')
+    .split('\n')
+    .map((l) =>
+      l
+        .replace(/^#{1,6}\s+/, '')
+        .replace(/^\s*[-*•]\s+/, '  •  ')
+        .replace(/^\s*(\d+[.)])\s+/, '  $1 ')
+        .replace(/\*\*/g, ''),
+    )
+    .join('\n')
+}
+
 // Trims a paragraph to a short, scannable line (first sentence, or clipped).
 function condenseText(text, maxLen = 220) {
   if (!text) return ''
@@ -347,7 +361,7 @@ function addMatrixPage(doc, matrix, shows) {
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(10)
     doc.setTextColor(51, 65, 85)
-    doc.splitTextToSize(text, pageW - 72).forEach((line) => {
+    doc.splitTextToSize(stripMd(text), pageW - 72).forEach((line) => {
       y = ensureSpace(doc, y, 14, pageH)
       doc.text(line, 36, y)
       y += 13

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import EmptyState from './EmptyState.jsx'
 import ScoreBadge from './ScoreBadge.jsx'
 import { Sparkles, Download } from './Icons.jsx'
+import RichText from './RichText.jsx'
 import { generateReport } from '../lib/pdf.js'
 import {
   getScore,
@@ -176,9 +177,10 @@ export default function Compare({ plays, settings }) {
               </p>
             )}
             {ai.status === 'done' && (
-              <div className="mt-4 whitespace-pre-line rounded-lg border border-slate-200 bg-white p-4 text-sm leading-relaxed text-slate-700">
-                {ai.text}
-              </div>
+              <RichText
+                text={ai.text}
+                className="mt-4 rounded-lg border border-slate-200 bg-white p-4 text-sm text-slate-700"
+              />
             )}
           </div>
 
