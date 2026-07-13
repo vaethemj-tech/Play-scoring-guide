@@ -38,7 +38,7 @@ export const DEFAULT_SETTINGS = {
 }
 
 // Visible build tag so it's unambiguous which deployed version is loaded.
-export const APP_VERSION = '23'
+export const APP_VERSION = '24'
 
 // AI venue-fit scoring categories (each rated 1–10 for the user's venue).
 export const FIT_CATEGORIES = [
@@ -53,7 +53,7 @@ export const FIT_MAX = FIT_CATEGORIES.length * 10
 // Rows of the Season Balance Matrix.
 export const SEASON_FACTORS = [
   { id: 'genre', label: 'Genre' },
-  { id: 'tone', label: 'Tone (Comedy / Drama / Thriller / Musical)' },
+  { id: 'tone', label: 'Tone (Comedy / Drama / Thriller)' },
   { id: 'castSize', label: 'Cast Size (Small 2–6 / Medium 7–12 / Large 13+)' },
   { id: 'genderBalance', label: 'Gender Balance of Roles' },
   { id: 'techComplexity', label: 'Technical Complexity (Low / Medium / High)' },
